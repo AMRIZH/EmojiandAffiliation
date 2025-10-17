@@ -1,0 +1,4 @@
+1. ReadmeScrapper/Batch
+2. Filtering
+3. AffiliationExtractor
+4. AffiliationSamples
