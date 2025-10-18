@@ -16,15 +16,15 @@ load_dotenv()
 # ============================
 MIN_STARS = 1000  # Minimum number of stars
 MAX_STARS = 160000  # Maximum number of stars
-REPOS_PER_HOUR = 8000  # Repositories to scrape per hour (example: 6 tokens * 1000 repos each)
+REPOS_PER_HOUR = 9000  # Repositories to scrape per hour (example: 9 tokens * 1000 repos each)
 MIN_COLLABORATORS = 0  # Minimum number of collaborators (0 = no minimum)
 README_CHAR_LIMIT = 10000000  # Maximum number of characters to keep from README
-MAX_WORKERS = 8 # Number of parallel threads (matches number of tokens)
+MAX_WORKERS = 9 # Number of parallel threads (matches number of tokens)
 OUTPUT_CSV = "github_readmes_batch.csv"  # Main output file (will be appended to)
 
 # Load GitHub tokens from environment variables
 github_tokens = []
-for i in range(1, 9):  # Load up to 8 tokens
+for i in range(1, 10):  # Load up to 9 tokens
     token = os.getenv(f'GITHUB_TOKEN_{i}')
     if token:
         github_tokens.append(token)
