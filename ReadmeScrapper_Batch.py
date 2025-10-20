@@ -19,7 +19,7 @@ MIN_STARS = 1000  # Minimum number of stars
 MAX_STARS = 150000  # Maximum number of stars
 MIN_CONTRIBUTORS = 0  # Minimum number of contributors (0 = no minimum, contributors = people who made commits)
 README_CHAR_LIMIT = 10000000  # Maximum number of characters to keep from README
-NUMBER_OF_TOKENS = 10  # Total number of GitHub tokens available in .env file
+NUMBER_OF_TOKENS = 12  # Total number of GitHub tokens available in .env file
 MAX_WORKERS = 4  # Number of parallel threads (can be less than NUMBER_OF_TOKENS for fewer logical processors)
 
 # Load GitHub tokens from environment variables
