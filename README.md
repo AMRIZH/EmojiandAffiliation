@@ -50,6 +50,7 @@ graph TD
 | `AffiliationExtractor_deepseek.py` | Classify (DeepSeek) | Cost-effective, prompt caching |
 | `AffiliationExtractor_OpenAI.py` | Classify (OpenAI) | gpt-4o-mini, enhanced prompts |
 | `visualization.py` | Create charts | 9 charts, 300 DPI |
+| `StatisticalAnalysis.py` | Statistical analysis | Correlation, distribution, chi-square |
 | `AffiliationSamples.py` | Generate reports | Text summaries |
 
 **Political Emojis (41 total):**
@@ -141,7 +142,22 @@ python visualization.py
 **What it does:** Generates 9 charts analyzing the data
 - Output: `visualizations/` folder with PNG files (300 DPI)
 
-### Step 5: Generate Reports (Optional)
+### Step 5: Statistical Analysis (Optional)
+
+```bash
+python StatisticalAnalysis.py
+```
+
+**What it does:** Performs comprehensive statistical analysis
+- Descriptive statistics (mean, median, std, quartiles, skewness, kurtosis)
+- Correlation analysis (Pearson & Spearman)
+- Distribution tests (normality, outliers)
+- Affiliation comparisons (ANOVA, Kruskal-Wallis)
+- Temporal trends analysis
+- Chi-square tests (categorical associations)
+- Output: 9 visualization charts + detailed report in `statistical_analysis/`
+
+### Step 6: Generate Reports (Optional)
 
 ```bash
 python AffiliationSamples.py
@@ -159,7 +175,8 @@ githubscrapper/
 ├── AffiliationExtractor_deepseek.py  # Step 3: Classify (DeepSeek)
 ├── AffiliationExtractor_OpenAI.py    # Step 3: Classify (OpenAI)
 ├── visualization.py                  # Step 4: Generate charts
-├── AffiliationSamples.py             # Step 5: Text reports
+├── StatisticalAnalysis.py            # Step 5: Statistical analysis
+├── AffiliationSamples.py             # Step 6: Text reports
 ├── .env                              # API keys (not in git)
 ├── requirements.txt                  # Dependencies
 ├── results/                          # Output CSVs

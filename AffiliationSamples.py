@@ -5,7 +5,7 @@ import os
 # ============================
 # CONFIGURATION - Edit these variables
 # ============================
-INPUT_CSV = "github_affiliation.csv"  # Input CSV file with affiliations (output from AffiliationExtractor.py)
+INPUT_CSV = "github_affiliation_openai.csv"  # Input CSV file with affiliations (output from AffiliationExtractor.py)
 # Alternative: "github_affiliation_openai.csv" (output from AffiliationExtractor_OpenAI.py)
 OUTPUT_TXT = "affiliated_repositories.txt"  # Output text file
 EXCLUDE_NONE = True  # Set to True to exclude repos with 'none' affiliation

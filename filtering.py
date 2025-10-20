@@ -246,14 +246,15 @@ class CSVFilter:
             print(f"   Max: {max_stars:,}")
             print(f"   Min: {min_stars:,}")
         
-        # Collaborators statistics
-        if 'collaborators' in self.filtered_df.columns:
-            total_collabs = self.filtered_df['collaborators'].sum()
-            avg_collabs = self.filtered_df['collaborators'].mean()
+        # Contributors statistics (with legacy support for 'collaborators')
+        contrib_col = 'contributors' if 'contributors' in self.filtered_df.columns else 'collaborators'
+        if contrib_col in self.filtered_df.columns:
+            total_contrib = self.filtered_df[contrib_col].sum()
+            avg_contrib = self.filtered_df[contrib_col].mean()
             
-            print(f"\n👥 Collaborators:")
-            print(f"   Total: {total_collabs:,}")
-            print(f"   Average: {avg_collabs:.1f}")
+            print(f"\n👥 Contributors:")
+            print(f"   Total: {total_contrib:,}")
+            print(f"   Average: {avg_contrib:.1f}")
         
         # README statistics
         if 'readme' in self.filtered_df.columns:

@@ -17,7 +17,7 @@ load_dotenv()
 MIN_STARS = 1000  # Minimum number of stars
 MAX_STARS = 160000  # Maximum number of stars
 REPOS_PER_HOUR = 9000  # Repositories to scrape per hour (example: 9 tokens * 1000 repos each)
-MIN_COLLABORATORS = 0  # Minimum number of collaborators (0 = no minimum)
+MIN_CONTRIBUTORS = 0  # Minimum number of contributors (0 = no minimum, contributors = people who made commits)
 README_CHAR_LIMIT = 10000000  # Maximum number of characters to keep from README
 MAX_WORKERS = 9 # Number of parallel threads (matches number of tokens)
 OUTPUT_CSV = "github_readmes_batch.csv"  # Main output file (will be appended to)
@@ -270,17 +270,17 @@ class BatchReadmeScrapper:
             with self.print_lock:
                 print(f"[W{worker_id} {idx}/{len(repos)}] {owner}/{repo_name} ({stars:,} ⭐)")
             
-            # Get collaborators count (before README to ensure README is last)
-            if MIN_COLLABORATORS > 0:
-                collaborators_count = self._get_collaborators_count(owner, repo_name, headers)
-                # Skip repo if below minimum collaborators
-                if collaborators_count < MIN_COLLABORATORS:
+            # Get contributors count (publicly accessible, before README to ensure README is last)
+            if MIN_CONTRIBUTORS > 0:
+                contributors_count = self._get_contributors_count(owner, repo_name, headers)
+                # Skip repo if below minimum contributors
+                if contributors_count < MIN_CONTRIBUTORS:
                     with self.print_lock:
-                        print(f"   ⏭️  Skipped: Only {collaborators_count} collaborators (min: {MIN_COLLABORATORS})")
+                        print(f"   ⏭️  Skipped: Only {contributors_count} contributors (min: {MIN_CONTRIBUTORS})")
                     continue
             else:
-                # Always fetch collaborators count
-                collaborators_count = self._get_collaborators_count(owner, repo_name, headers)
+                # Always fetch contributors count
+                contributors_count = self._get_contributors_count(owner, repo_name, headers)
             
             # Get README (always last API call)
             readme_content = self._get_readme(owner, repo_name, headers)
@@ -291,7 +291,7 @@ class BatchReadmeScrapper:
                 "repo_stars": stars,
                 "repo_url": repo_url,
                 "description": description,
-                "collaborators": collaborators_count,
+                "contributors": contributors_count,
                 "topics": topics,
                 "readme": readme_content or ""
             }
@@ -301,12 +301,14 @@ class BatchReadmeScrapper:
         
         return repo_data_list
     
-    def _get_collaborators_count(self, owner, repo, headers):
-        """Get the number of collaborators for a repository"""
-        url = f"{self.base_url}/repos/{owner}/{repo}/collaborators"
+    def _get_contributors_count(self, owner, repo, headers):
+        """Get the number of contributors for a repository (publicly accessible)"""
+        # Use contributors endpoint (publicly accessible)
+        url = f"{self.base_url}/repos/{owner}/{repo}/contributors"
         
         try:
-            response = requests.get(url, headers=headers, params={'per_page': 1}, timeout=30)
+            # First request to get Link header for total count
+            response = requests.get(url, headers=headers, params={'per_page': 1, 'anon': 'true'}, timeout=30)
             
             if response.status_code == 200:
                 # Get total count from Link header if available
@@ -315,12 +317,22 @@ class BatchReadmeScrapper:
                     import re
                     last_page = re.search(r'page=(\d+)>; rel="last"', link_header)
                     if last_page:
-                        return int(last_page.group(1))
-                # If no pagination, count the items in response
-                return len(response.json())
+                        count = int(last_page.group(1))
+                        return count
+                # If no pagination, get all contributors on first page
+                response_full = requests.get(url, headers=headers, params={'per_page': 100, 'anon': 'true'}, timeout=30)
+                if response_full.status_code == 200:
+                    return len(response_full.json())
+                return 1  # At least 1 contributor (the owner)
+            elif response.status_code == 403:
+                # Rate limit or forbidden - return 0
+                return 0
+            elif response.status_code == 404:
+                # Repository not found or no contributors
+                return 0
             else:
                 return 0
-        except:
+        except Exception as e:
             return 0
     
     def _get_readme(self, owner, repo, headers):
@@ -351,7 +363,7 @@ class BatchReadmeScrapper:
             return
         
         fieldnames = ["repo_owner", "repo_name", "repo_stars", "repo_url", 
-                     "description", "collaborators", "topics", "readme"]
+                     "description", "contributors", "topics", "readme"]
         
         mode = 'w' if is_first_batch else 'a'
         write_header = is_first_batch

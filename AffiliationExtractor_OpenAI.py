@@ -14,7 +14,7 @@ load_dotenv()
 INPUT_CSV = "Cleaned_github_readmes.csv"  # Input CSV file to process (output from filtering.py)
 OUTPUT_CSV = "github_affiliation_openai.csv"  # Output CSV file with affiliation
 OPENAI_API_KEY = os.getenv('openai_api_key')  # OpenAI API key from .env
-MODEL_ID = "gpt-4o-mini"  # OpenAI model (gpt-4o-mini is the latest mini model)
+MODEL_ID = "gpt-4.1-nano"  # OpenAI model (gpt-4.1-nano is the latest nano model)
 MAX_RETRIES = 3  # Maximum number of retries for failed requests
 # ============================
 

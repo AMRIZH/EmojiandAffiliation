@@ -3,11 +3,22 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from datetime import datetime
 import os
+import warnings
+import sys
+
+# Set UTF-8 encoding for Windows console
+if sys.platform == 'win32':
+    import codecs
+    sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer, 'strict')
+    sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer, 'strict')
+
+# Suppress font warnings for emoji characters
+warnings.filterwarnings('ignore', category=UserWarning, message='.*Glyph.*missing from font.*')
 
 # ============================
 # CONFIGURATION - Edit these variables
 # ============================
-INPUT_CSV = "github_affiliation.csv"  # Input CSV file to visualize (output from AffiliationExtractor.py)
+INPUT_CSV = "github_affiliation_openai.csv"  # Input CSV file to visualize (output from AffiliationExtractor.py)
 # Alternative: "github_affiliation_openai.csv" (output from AffiliationExtractor_OpenAI.py)
 OUTPUT_DIR = "visualizations"  # Directory to save visualizations
 # ============================
@@ -30,6 +41,20 @@ class DataVisualizer:
         plt.rcParams['figure.figsize'] = (12, 6)
         plt.rcParams['font.size'] = 10
         
+        # Try to use fonts with better emoji support on Windows
+        try:
+            from matplotlib import font_manager
+            # Try to use Segoe UI Emoji or Arial Unicode MS which have emoji support
+            available_fonts = [f.name for f in font_manager.fontManager.ttflist]
+            if 'Segoe UI Emoji' in available_fonts:
+                plt.rcParams['font.family'] = 'Segoe UI Emoji'
+            elif 'Arial Unicode MS' in available_fonts:
+                plt.rcParams['font.family'] = 'Arial Unicode MS'
+            elif 'Segoe UI' in available_fonts:
+                plt.rcParams['font.family'] = 'Segoe UI'
+        except:
+            pass  # Use default font if emoji fonts not available
+        
         # Create output directory if it doesn't exist
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
@@ -51,6 +76,14 @@ class DataVisualizer:
             print(f"✅ Loaded {self.csv_file}")
             print(f"   Rows: {len(self.df):,} | Columns: {len(self.df.columns)}")
             print(f"   Columns: {', '.join(self.df.columns)}\n")
+            
+            # Create filtered dataset for affiliated repositories only
+            if 'affiliation' in self.df.columns:
+                self.df_affiliated = self.df[self.df['affiliation'] != 'none'].copy()
+                print(f"✓ Found {len(self.df_affiliated)} repositories with political affiliations\n")
+            else:
+                self.df_affiliated = self.df.copy()
+            
             return True
         except Exception as e:
             print(f"❌ Error loading CSV: {e}")
@@ -408,10 +441,10 @@ class DataVisualizer:
         ax.text(0.5, 0.98, 'Research Pipeline: Political Emoji & Repository Affiliation',
                ha='center', va='top', fontsize=16, fontweight='bold')
         
-        # Add methodology notes
+        # Add methodology notes (using text instead of emojis to avoid font issues)
         notes = [
             '1. Scraped GitHub repositories (README, description, metadata)',
-            '2. Filtered by political emojis (🇮🇱, 🇵🇸, ✊🏿, 🇺🇦, ♻️, 🌈, etc.)',
+            '2. Filtered by political emojis (Israel, Palestine, BLM, Ukraine, Climate, LGBTQ, etc.)',
             '3. Classified using DeepSeek LLM (8 categories)',
             '4. Analyzed emoji-affiliation correlation'
         ]
@@ -436,11 +469,11 @@ class DataVisualizer:
         """
         print("📊 Creating data reduction funnel...")
         
-        # You'll need to manually input these values based on your actual data
-        # These are example values - replace with actual counts
+        # Load actual data from pipeline stages
         try:
-            # Try to load original and filtered data for comparison
-            original_csv = "github_readmes_20251015_191922.csv"
+            # Original scraped data
+            original_csv = "github_readmes_batch.csv"
+            # After emoji filtering
             filtered_csv = "Cleaned_github_readmes.csv"
             
             original_count = 0
@@ -450,25 +483,31 @@ class DataVisualizer:
             if os.path.exists(original_csv):
                 df_original = pd.read_csv(original_csv)
                 original_count = len(df_original)
+                print(f"   📊 Original scraped repos: {original_count:,}")
             
             if os.path.exists(filtered_csv):
                 df_filtered = pd.read_csv(filtered_csv)
                 filtered_count = len(df_filtered)
+                print(f"   📊 After emoji filter: {filtered_count:,}")
             
             # Count repos with affiliation (not 'none')
             affiliated_count = len(self.df[self.df['affiliation'] != 'none'])
+            print(f"   📊 With affiliation: {affiliated_count:,}")
             
             stages = [
-                ('Initial Scrape', original_count if original_count > 0 else 100),
-                ('After Emoji Filter', filtered_count if filtered_count > 0 else 10),
-                ('With Affiliation', affiliated_count if affiliated_count > 0 else 8)
+                ('Initial Scrape', original_count),
+                ('After Emoji Filter', filtered_count),
+                ('With Affiliation', affiliated_count)
             ]
-        except:
-            # Fallback example data
+        except Exception as e:
+            print(f"   ⚠️  Error loading pipeline data: {e}")
+            # Use current data as fallback
+            total = len(self.df)
+            affiliated = len(self.df[self.df['affiliation'] != 'none'])
             stages = [
-                ('Initial Scrape', 100),
-                ('After Emoji Filter', 10),
-                ('With Affiliation', 8)
+                ('Initial Scrape', total * 10),  # Estimate
+                ('After Emoji Filter', total),
+                ('With Affiliation', affiliated)
             ]
         
         fig, ax = plt.subplots(figsize=(10, 8))
@@ -530,15 +569,15 @@ class DataVisualizer:
         """
         print("📊 Creating emoji-affiliation correlation heatmap...")
         
-        # Define emoji groups
+        # Define emoji groups (using Unicode escape sequences to avoid font issues)
         emoji_groups = {
-            'Israel': ['🇮🇱', '🤍', '✡️', '🎗️'],
-            'Palestine': ['🇵🇸', '💚', '🖤', '🍉'],
-            'Ukraine': ['🇺🇦', '💛', '🌻'],
-            'BLM': ['✊🏾', '✊🏿', '🤎'],
-            'Climate': ['♻️', '🌱', '🌎', '🌍', '🌏'],
-            'Women': ['♀️', '👩', '💔', '😔'],
-            'LGBTQ': ['🌈', '🏳️‍🌈', '🏳️‍⚧️']
+            'Israel': ['\U0001F1EE\U0001F1F1', '\U0001F90D', '\U00002721\U0000FE0F', '\U0001F397\U0000FE0F'],
+            'Palestine': ['\U0001F1F5\U0001F1F8', '\U0001F49A', '\U0001F5A4', '\U0001F349'],
+            'Ukraine': ['\U0001F1FA\U0001F1E6', '\U0001F49B', '\U0001F33B'],
+            'BLM': ['\U0000270A\U0001F3FE', '\U0000270A\U0001F3FF', '\U0001F90E'],
+            'Climate': ['\U0000267B\U0000FE0F', '\U0001F331', '\U0001F30E', '\U0001F30D', '\U0001F30F'],
+            'Women': ['\U00002640\U0000FE0F', '\U0001F469', '\U0001F494', '\U0001F614'],
+            'LGBTQ': ['\U0001F308', '\U0001F3F3\U0000FE0F\U0000200D\U0001F308', '\U0001F3F3\U0000FE0F\U0000200D\U000026A7\U0000FE0F']
         }
         
         affiliations = ['israel', 'palestine', 'ukraine', 'blm', 'climate', 'feminism', 'lgbtq', 'none']
@@ -593,6 +632,61 @@ class DataVisualizer:
         print(f"   ✅ Saved: {filename}")
         plt.close()
     
+    def plot_affiliated_correlation_heatmap(self):
+        """
+        Create correlation heatmap for affiliated repositories only
+        """
+        print("📊 Creating affiliated repos correlation heatmap...")
+        
+        if not hasattr(self, 'df_affiliated') or len(self.df_affiliated) == 0:
+            print("   ⚠ No affiliated repositories found. Skipping.")
+            return
+        
+        # Prepare numeric columns for correlation (try different column names)
+        numeric_cols = ['repo_stars', 'stars', 'repo_forks', 'forks', 'repo_size', 'size']
+        available_cols = []
+        seen_types = set()  # Track column types to avoid duplicates
+        
+        for col in numeric_cols:
+            if col in self.df_affiliated.columns and self.df_affiliated[col].notna().any():
+                col_type = col.replace('repo_', '')
+                if col_type not in seen_types:
+                    available_cols.append(col)
+                    seen_types.add(col_type)
+        
+        # Try adding derived column if needed
+        if len(available_cols) < 2 and 'readme' in self.df_affiliated.columns:
+            self.df_affiliated.loc[:, 'readme_length'] = self.df_affiliated['readme'].str.len()
+            available_cols.append('readme_length')
+        
+        if len(available_cols) < 2:
+            print("   ⚠ Not enough numeric columns for correlation. Skipping.")
+            return
+        
+        # Calculate correlation matrix
+        corr_matrix = self.df_affiliated[available_cols].corr(method='pearson')
+        
+        # Create heatmap
+        fig, ax = plt.subplots(figsize=(10, 8))
+        
+        sns.heatmap(corr_matrix, annot=True, fmt='.3f', cmap='coolwarm', 
+                   center=0, vmin=-1, vmax=1, square=True, linewidths=1,
+                   cbar_kws={"shrink": 0.8}, ax=ax)
+        
+        ax.set_title('Correlation Matrix - Affiliated Repositories Only\n(Excluding "None" Affiliation)', 
+                    fontsize=14, fontweight='bold', pad=20)
+        
+        # Rename labels for readability
+        labels = [col.replace('repo_', '').upper() for col in available_cols]
+        ax.set_xticklabels(labels, rotation=45, ha='right')
+        ax.set_yticklabels(labels, rotation=0)
+        
+        plt.tight_layout()
+        filename = os.path.join(self.output_dir, 'affiliated_correlation_heatmap.png')
+        plt.savefig(filename, dpi=300, bbox_inches='tight')
+        print(f"   ✅ Saved: {filename}")
+        plt.close()
+    
     def plot_affiliation_vs_none_comparison(self):
         """
         Compare repositories with affiliation vs none
@@ -624,7 +718,18 @@ class DataVisualizer:
             for i, stars in enumerate(avg_stars):
                 ax2.text(i, stars, f'{stars:.0f}', ha='center', va='bottom', fontweight='bold')
         
-        # 3. README length comparison
+        # 3. Contributors comparison (with legacy support for 'collaborators')
+        contrib_col = 'contributors' if 'contributors' in self.df.columns else 'collaborators'
+        if contrib_col in self.df.columns:
+            aff_contrib = affiliated[contrib_col].mean()
+            non_contrib = non_affiliated[contrib_col].mean()
+            ax3.bar(['With Affiliation', 'None'], [aff_contrib, non_contrib], color=colors_comp)
+            ax3.set_ylabel('Average Contributors', fontweight='bold')
+            ax3.set_title('Average Contributors Count', fontweight='bold')
+            for i, contrib in enumerate([aff_contrib, non_contrib]):
+                ax3.text(i, contrib, f'{contrib:.1f}', ha='center', va='bottom', fontweight='bold')
+        
+        # 4. README length comparison
         if 'readme' in self.df.columns:
             aff_readme_len = affiliated['readme'].str.len().mean()
             non_readme_len = non_affiliated['readme'].str.len().mean()
@@ -680,6 +785,9 @@ class DataVisualizer:
         self.plot_stars_by_affiliation()
         self.plot_top_repos(n=20)
         self.plot_affiliation_stats_table()
+        
+        # NEW: Focused visualizations for affiliated repositories
+        self.plot_affiliated_correlation_heatmap()
         
         print("\n" + "=" * 60)
         print("✅ All visualizations generated successfully!")
