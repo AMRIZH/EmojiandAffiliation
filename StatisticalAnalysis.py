@@ -63,6 +63,9 @@ class StatisticalAnalyzer:
         }
         self.df.rename(columns=column_mapping, inplace=True)
         
+        # Handle created_at from ReadmeScrapper_Batch.py (no repo_ prefix)
+        # No need to rename if already 'created_at'
+        
         # Create a filtered dataset excluding 'none' affiliation for focused analysis
         if 'affiliation' in self.df.columns:
             self.df_affiliated = self.df[self.df['affiliation'] != 'none'].copy()

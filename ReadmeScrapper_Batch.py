@@ -18,7 +18,7 @@ OUTPUT_CSV = "github_readmes_batch.csv"  # Main output file (will be appended to
 MIN_STARS = 1000  # Minimum number of stars
 MAX_STARS = 150000  # Maximum number of stars
 MIN_CONTRIBUTORS = 0  # Minimum number of contributors (0 = no minimum, contributors = people who made commits)
-README_CHAR_LIMIT = 10000000  # Maximum number of characters to keep from README
+README_CHAR_LIMIT = 1000000  # Maximum number of characters to keep from README
 NUMBER_OF_TOKENS = 12  # Total number of GitHub tokens available in .env file
 MAX_WORKERS = 4  # Number of parallel threads (can be less than NUMBER_OF_TOKENS for fewer logical processors)
 
@@ -31,9 +31,6 @@ for i in range(1, NUMBER_OF_TOKENS + 1):
 
 if not github_tokens:
     raise ValueError("No GitHub tokens found! Please set GITHUB_TOKEN_1, GITHUB_TOKEN_2, etc. in .env file")
-
-# Auto-calculate repos per hour based on total tokens (1000 requests per token per hour)
-REPOS_PER_HOUR = NUMBER_OF_TOKENS * 1000
 # ============================
 
 class BatchReadmeScrapper:
@@ -71,6 +68,16 @@ class BatchReadmeScrapper:
         self.print_lock = threading.Lock()
         self.repos_lock = threading.Lock()
         self.scraped_urls = set()  # Track scraped repos to avoid duplicates
+        
+        # Track rate limit status for each token
+        self.token_rate_limits = {}
+        self.rate_limit_lock = threading.Lock()
+        for i, token in enumerate(self.tokens):
+            self.token_rate_limits[i] = {
+                'remaining': 5000,
+                'reset_time': None,
+                'is_limited': False
+            }
     
     def get_all_unique_repos(self, min_stars, max_stars):
         """
@@ -176,6 +183,42 @@ class BatchReadmeScrapper:
         
         return all_repos
     
+    def _update_rate_limit_from_response(self, response, token_index):
+        """Update rate limit tracking from API response headers"""
+        try:
+            remaining = int(response.headers.get('X-RateLimit-Remaining', 5000))
+            reset_timestamp = int(response.headers.get('X-RateLimit-Reset', 0))
+            reset_time = datetime.fromtimestamp(reset_timestamp) if reset_timestamp else None
+            
+            with self.rate_limit_lock:
+                self.token_rate_limits[token_index]['remaining'] = remaining
+                self.token_rate_limits[token_index]['reset_time'] = reset_time
+                self.token_rate_limits[token_index]['is_limited'] = (remaining < 10)
+        except:
+            pass
+    
+    def _get_available_token(self, token_group):
+        """Get a non-rate-limited token from the group, or None if all are limited"""
+        for headers in token_group:
+            # Find the token index for this header
+            token_index = self.all_headers.index(headers)
+            with self.rate_limit_lock:
+                if not self.token_rate_limits[token_index]['is_limited']:
+                    return headers, token_index
+        return None, None
+    
+    def _all_tokens_limited(self):
+        """Check if all tokens are rate limited"""
+        with self.rate_limit_lock:
+            return all(info['is_limited'] for info in self.token_rate_limits.values())
+    
+    def _get_earliest_reset_time(self):
+        """Get the earliest reset time among all rate-limited tokens"""
+        with self.rate_limit_lock:
+            reset_times = [info['reset_time'] for info in self.token_rate_limits.values() 
+                          if info['reset_time'] is not None]
+            return min(reset_times) if reset_times else None
+    
     def _search_repo_metadata(self, min_stars, max_stars, headers):
         """Search for repository metadata in a star range"""
         repos = []
@@ -270,6 +313,7 @@ class BatchReadmeScrapper:
     def _scrape_repos_worker(self, repos, worker_id, token_group, batch_num):
         """Worker function to scrape repositories - rotates through assigned tokens"""
         repo_data_list = []
+        current_token_idx = 0
         
         for idx, repo in enumerate(repos, 1):
             owner = repo["owner"]["login"]
@@ -285,16 +329,22 @@ class BatchReadmeScrapper:
             stars = repo["stargazers_count"]
             description = repo.get("description", "") or ""
             topics = ", ".join(repo.get("topics", []))
+            created_at = repo.get("created_at", "")  # Get repository creation date
             
-            # Rotate through tokens in this worker's group
-            headers = token_group[(idx - 1) % len(token_group)]
+            # Get an available token (not rate limited)
+            headers, token_index = self._get_available_token(token_group)
+            if headers is None:
+                # All tokens in this group are rate limited
+                with self.print_lock:
+                    print(f"[W{worker_id}] ⚠️  All tokens exhausted, stopping early")
+                break
             
             with self.print_lock:
                 print(f"[W{worker_id} {idx}/{len(repos)}] {owner}/{repo_name} ({stars:,} ⭐)")
             
             # Get contributors count (publicly accessible, before README to ensure README is last)
             if MIN_CONTRIBUTORS > 0:
-                contributors_count = self._get_contributors_count(owner, repo_name, headers)
+                contributors_count = self._get_contributors_count(owner, repo_name, headers, token_index)
                 # Skip repo if below minimum contributors
                 if contributors_count < MIN_CONTRIBUTORS:
                     with self.print_lock:
@@ -302,10 +352,10 @@ class BatchReadmeScrapper:
                     continue
             else:
                 # Always fetch contributors count
-                contributors_count = self._get_contributors_count(owner, repo_name, headers)
+                contributors_count = self._get_contributors_count(owner, repo_name, headers, token_index)
             
             # Get README (always last API call)
-            readme_content = self._get_readme(owner, repo_name, headers)
+            readme_content = self._get_readme(owner, repo_name, headers, token_index)
             
             repo_data = {
                 "repo_owner": owner,
@@ -315,6 +365,7 @@ class BatchReadmeScrapper:
                 "description": description,
                 "contributors": contributors_count,
                 "topics": topics,
+                "created_at": created_at,
                 "readme": readme_content or ""
             }
             repo_data_list.append(repo_data)
@@ -323,7 +374,7 @@ class BatchReadmeScrapper:
         
         return repo_data_list
     
-    def _get_contributors_count(self, owner, repo, headers):
+    def _get_contributors_count(self, owner, repo, headers, token_index):
         """Get the number of contributors for a repository (publicly accessible)"""
         # Use contributors endpoint (publicly accessible)
         url = f"{self.base_url}/repos/{owner}/{repo}/contributors"
@@ -331,6 +382,9 @@ class BatchReadmeScrapper:
         try:
             # First request to get Link header for total count
             response = requests.get(url, headers=headers, params={'per_page': 1, 'anon': 'true'}, timeout=30)
+            
+            # Update rate limit tracking
+            self._update_rate_limit_from_response(response, token_index)
             
             if response.status_code == 200:
                 # Get total count from Link header if available
@@ -357,12 +411,15 @@ class BatchReadmeScrapper:
         except Exception as e:
             return 0
     
-    def _get_readme(self, owner, repo, headers):
+    def _get_readme(self, owner, repo, headers, token_index):
         """Get README content"""
         url = f"{self.base_url}/repos/{owner}/{repo}/readme"
         
         try:
             response = requests.get(url, headers=headers, timeout=30)
+            
+            # Update rate limit tracking
+            self._update_rate_limit_from_response(response, token_index)
             
             if response.status_code == 200:
                 data = response.json()
@@ -385,7 +442,7 @@ class BatchReadmeScrapper:
             return
         
         fieldnames = ["repo_owner", "repo_name", "repo_stars", "repo_url", 
-                     "description", "contributors", "topics", "readme"]
+                     "description", "contributors", "topics", "created_at", "readme"]
         
         mode = 'w' if is_first_batch else 'a'
         write_header = is_first_batch
@@ -401,39 +458,57 @@ class BatchReadmeScrapper:
         except Exception as e:
             print(f"❌ Error saving CSV: {e}")
     
-    def wait_for_next_batch(self, batch_num, total_batches):
-        """
-        Step 4: Wait 60 minutes before next batch
-        """
-        if batch_num < total_batches:
-            print(f"\n{'='*80}")
-            print(f"⏱️  WAITING 60 MINUTES BEFORE NEXT BATCH")
-            print(f"{'='*80}\n")
-            
-            wait_minutes = 60
-            end_time = datetime.now() + timedelta(minutes=wait_minutes)
-            
-            print(f"Current time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-            print(f"Next batch starts: {end_time.strftime('%Y-%m-%d %H:%M:%S')}")
-            print(f"Sleeping for {wait_minutes} minutes...\n")
-            
-            time.sleep(wait_minutes * 60)
+    def _wait_for_rate_limit_reset(self):
+        """Wait until the earliest rate limit resets"""
+        reset_time = self._get_earliest_reset_time()
+        
+        if reset_time is None:
+            # Fallback to 60 minutes if no reset time available
+            wait_seconds = 3600
+            reset_time = datetime.now() + timedelta(seconds=wait_seconds)
+        else:
+            wait_seconds = max(0, (reset_time - datetime.now()).total_seconds())
+        
+        # Add 5 seconds buffer
+        wait_seconds += 5
+        
+        print(f"\n{'='*80}")
+        print(f"⏱️  WAITING FOR RATE LIMIT RESET")
+        print(f"{'='*80}\n")
+        print(f"Current time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"Reset time: {reset_time.strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"Wait duration: {int(wait_seconds // 60)} minutes {int(wait_seconds % 60)} seconds")
+        
+        # Display rate limit status
+        with self.rate_limit_lock:
+            for token_idx, info in self.token_rate_limits.items():
+                status = "🔴 RATE LIMITED" if info['is_limited'] else "🟢 AVAILABLE"
+                print(f"  Token {token_idx + 1}: {info['remaining']:,}/5,000 remaining - {status}")
+        
+        print(f"\nSleeping until {reset_time.strftime('%H:%M:%S')}...\n")
+        time.sleep(wait_seconds)
+        
+        # Reset all token limits after waiting
+        with self.rate_limit_lock:
+            for token_idx in self.token_rate_limits:
+                self.token_rate_limits[token_idx]['is_limited'] = False
+                self.token_rate_limits[token_idx]['remaining'] = 5000
+        
+        print(f"✅ Rate limits reset! Resuming scraping...\n")
     
-    def run_continuous_scraping(self, min_stars, max_stars, repos_per_hour):
-        """
-        Main workflow: Scan → Batch scrape → Save → Wait → Repeat
-        """
+    def run_continuous_scraping(self, min_stars, max_stars):
+        """Main workflow: Scan → Scrape until rate limited → Wait for reset → Repeat"""
         total_start_time = datetime.now()
         
         print(f"\n{'='*80}")
-        print(f"CONTINUOUS BATCH SCRAPING MODE")
+        print(f"DYNAMIC RATE-LIMIT AWARE SCRAPING MODE")
         print(f"{'='*80}\n")
         print(f"Configuration:")
         print(f"  Stars: {min_stars:,} to {max_stars:,}")
-        print(f"  Repos per hour: {repos_per_hour:,}")
         print(f"  Workers: {self.max_workers}")
         print(f"  Total Tokens: {len(self.tokens)}")
         print(f"  Tokens per Worker: {self.tokens_per_worker}")
+        print(f"  Strategy: Scrape until all tokens rate-limited, then wait for reset")
         print(f"  Output: {OUTPUT_CSV}")
         print(f"\n⏰ Total scraping started at: {total_start_time.strftime('%Y-%m-%d %H:%M:%S')}\n")
         
@@ -444,30 +519,57 @@ class BatchReadmeScrapper:
             print("❌ No repositories found!")
             return
         
-        # Calculate batches
         total_repos = len(all_repos)
-        num_batches = (total_repos + repos_per_hour - 1) // repos_per_hour
+        print(f"📊 Total repos to scrape: {total_repos:,}\n")
         
-        print(f"📊 Total repos to scrape: {total_repos:,}")
-        print(f"📦 Number of batches: {num_batches}")
-        print(f"🕒 Estimated time: {num_batches} hours\n")
+        # Process repos dynamically until all are scraped
+        current_idx = 0
+        batch_num = 0
+        is_first_save = True
         
-        # Process each batch
-        for batch_num in range(1, num_batches + 1):
-            start_idx = (batch_num - 1) * repos_per_hour
-            end_idx = min(start_idx + repos_per_hour, total_repos)
-            batch_repos = all_repos[start_idx:end_idx]
+        while current_idx < total_repos:
+            batch_num += 1
             
-            # Step 2: Scrape batch
-            batch_data = self.scrape_batch(batch_repos, batch_num, num_batches)
+            # Scrape repos until all tokens are rate limited
+            print(f"\n{'='*80}")
+            print(f"BATCH {batch_num}: SCRAPING UNTIL RATE LIMITED")
+            print(f"{'='*80}")
+            print(f"⏰ Started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+            print(f"� Starting from repo {current_idx + 1:,}/{total_repos:,}\n")
             
-            # Step 3: Save to CSV
-            self.save_batch_to_csv(batch_data, is_first_batch=(batch_num == 1))
+            batch_start_idx = current_idx
+            all_batch_data = []
             
-            print(f"\n📈 Progress: {end_idx:,}/{total_repos:,} repos ({end_idx/total_repos*100:.1f}%)")
+            # Scrape in chunks until all tokens exhausted
+            while current_idx < total_repos and not self._all_tokens_limited():
+                # Take a chunk of repos to scrape
+                chunk_size = 500
+                end_idx = min(current_idx + chunk_size, total_repos)
+                chunk_repos = all_repos[current_idx:end_idx]
+                
+                # Scrape this chunk
+                chunk_data = self.scrape_batch(chunk_repos, batch_num, "∞")
+                all_batch_data.extend(chunk_data)
+                
+                current_idx = end_idx
+                
+                # Check if we should stop
+                if self._all_tokens_limited():
+                    print(f"\n⚠️  All tokens are rate limited!")
+                    break
             
-            # Step 4: Wait before next batch (except for last batch)
-            self.wait_for_next_batch(batch_num, num_batches)
+            # Save all data from this batch
+            if all_batch_data:
+                self.save_batch_to_csv(all_batch_data, is_first_batch=is_first_save)
+                is_first_save = False
+            
+            repos_scraped = current_idx - batch_start_idx
+            print(f"\n✅ Batch {batch_num} complete: {repos_scraped:,} repos scraped")
+            print(f"📈 Total progress: {current_idx:,}/{total_repos:,} repos ({current_idx/total_repos*100:.1f}%)")
+            
+            # Wait for rate limit reset if not done
+            if current_idx < total_repos:
+                self._wait_for_rate_limit_reset()
         
         total_end_time = datetime.now()
         total_duration = total_end_time - total_start_time
@@ -479,7 +581,7 @@ class BatchReadmeScrapper:
         print(f"{'='*80}\n")
         print(f"📊 FINAL STATISTICS:")
         print(f"  Total repos scraped: {total_repos:,}")
-        print(f"  Batches completed: {num_batches}")
+        print(f"  Batches completed: {batch_num}")
         print(f"  Output file: {OUTPUT_CSV}")
         print(f"\n⏱️  TOTAL TIME:")
         print(f"  Started: {total_start_time.strftime('%Y-%m-%d %H:%M:%S')}")
@@ -498,14 +600,13 @@ def main():
     print(f"  Total tokens loaded: {len(github_tokens)}")
     print(f"  Workers: {MAX_WORKERS}")
     print(f"  Tokens per worker: {len(github_tokens) // MAX_WORKERS}")
-    print(f"  Repos per hour: {REPOS_PER_HOUR:,}\n")
+    print(f"  Max API points/hour: {len(github_tokens) * 5000:,}\n")
     
     scraper = BatchReadmeScrapper(github_tokens, MAX_WORKERS)
     
     scraper.run_continuous_scraping(
         min_stars=MIN_STARS,
-        max_stars=MAX_STARS,
-        repos_per_hour=REPOS_PER_HOUR
+        max_stars=MAX_STARS
     )
 
 
