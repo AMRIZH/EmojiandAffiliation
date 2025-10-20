@@ -14,30 +14,34 @@ load_dotenv()
 # ============================
 # CONFIGURATION - Edit these variables
 # ============================
+OUTPUT_CSV = "github_readmes_batch.csv"  # Main output file (will be appended to)
 MIN_STARS = 1000  # Minimum number of stars
-MAX_STARS = 160000  # Maximum number of stars
-REPOS_PER_HOUR = 9000  # Repositories to scrape per hour (example: 9 tokens * 1000 repos each)
+MAX_STARS = 150000  # Maximum number of stars
 MIN_CONTRIBUTORS = 0  # Minimum number of contributors (0 = no minimum, contributors = people who made commits)
 README_CHAR_LIMIT = 10000000  # Maximum number of characters to keep from README
-MAX_WORKERS = 9 # Number of parallel threads (matches number of tokens)
-OUTPUT_CSV = "github_readmes_batch.csv"  # Main output file (will be appended to)
+NUMBER_OF_TOKENS = 10  # Total number of GitHub tokens available in .env file
+MAX_WORKERS = 4  # Number of parallel threads (can be less than NUMBER_OF_TOKENS for fewer logical processors)
 
 # Load GitHub tokens from environment variables
 github_tokens = []
-for i in range(1, 10):  # Load up to 9 tokens
+for i in range(1, NUMBER_OF_TOKENS + 1):
     token = os.getenv(f'GITHUB_TOKEN_{i}')
     if token:
         github_tokens.append(token)
 
 if not github_tokens:
     raise ValueError("No GitHub tokens found! Please set GITHUB_TOKEN_1, GITHUB_TOKEN_2, etc. in .env file")
+
+# Auto-calculate repos per hour based on total tokens (1000 requests per token per hour)
+REPOS_PER_HOUR = NUMBER_OF_TOKENS * 1000
 # ============================
 
 class BatchReadmeScrapper:
-    def __init__(self, github_tokens):
-        """Initialize scrapper with multiple tokens"""
+    def __init__(self, github_tokens, max_workers):
+        """Initialize scrapper with multiple tokens and worker configuration"""
         self.base_url = "https://api.github.com"
         self.tokens = github_tokens if isinstance(github_tokens, list) else [github_tokens]
+        self.max_workers = max_workers
         
         # Create headers for each token
         self.all_headers = []
@@ -48,6 +52,20 @@ class BatchReadmeScrapper:
                 "Authorization": f"Bearer {token}"
             }
             self.all_headers.append(headers)
+        
+        # Distribute tokens across workers (each worker gets one or more tokens)
+        self.tokens_per_worker = len(self.tokens) // max_workers
+        if self.tokens_per_worker == 0:
+            self.tokens_per_worker = 1
+        
+        # Create token groups for each worker
+        self.worker_token_groups = []
+        for i in range(max_workers):
+            start_idx = i * self.tokens_per_worker
+            end_idx = start_idx + self.tokens_per_worker
+            if i == max_workers - 1:  # Last worker gets remaining tokens
+                end_idx = len(self.all_headers)
+            self.worker_token_groups.append(self.all_headers[start_idx:end_idx])
         
         self.headers = self.all_headers[0]
         self.print_lock = threading.Lock()
@@ -202,7 +220,7 @@ class BatchReadmeScrapper:
     
     def scrape_batch(self, repos_batch, batch_num, total_batches):
         """
-        Step 2: Scrape a batch of repositories (parallel with 6 workers)
+        Step 2: Scrape a batch of repositories (parallel with configured workers)
         """
         batch_start_time = datetime.now()
         
@@ -212,21 +230,22 @@ class BatchReadmeScrapper:
         print(f"⏰ Batch started at: {batch_start_time.strftime('%Y-%m-%d %H:%M:%S')}\n")
         
         repo_data_list = []
-        repos_per_worker = len(repos_batch) // MAX_WORKERS + 1
+        repos_per_worker = len(repos_batch) // self.max_workers + 1
         
         # Split repos among workers
         worker_batches = [repos_batch[i:i+repos_per_worker] 
                          for i in range(0, len(repos_batch), repos_per_worker)]
         
-        with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             futures = {}
             for worker_id, worker_repos in enumerate(worker_batches):
                 if not worker_repos:
                     continue
-                headers = self.all_headers[worker_id % len(self.all_headers)]
+                # Each worker gets its assigned token group
+                token_group = self.worker_token_groups[worker_id % len(self.worker_token_groups)]
                 future = executor.submit(
                     self._scrape_repos_worker,
-                    worker_repos, worker_id + 1, headers, batch_num
+                    worker_repos, worker_id + 1, token_group, batch_num
                 )
                 futures[future] = worker_id + 1
             
@@ -248,8 +267,8 @@ class BatchReadmeScrapper:
         
         return repo_data_list
     
-    def _scrape_repos_worker(self, repos, worker_id, headers, batch_num):
-        """Worker function to scrape repositories"""
+    def _scrape_repos_worker(self, repos, worker_id, token_group, batch_num):
+        """Worker function to scrape repositories - rotates through assigned tokens"""
         repo_data_list = []
         
         for idx, repo in enumerate(repos, 1):
@@ -266,6 +285,9 @@ class BatchReadmeScrapper:
             stars = repo["stargazers_count"]
             description = repo.get("description", "") or ""
             topics = ", ".join(repo.get("topics", []))
+            
+            # Rotate through tokens in this worker's group
+            headers = token_group[(idx - 1) % len(token_group)]
             
             with self.print_lock:
                 print(f"[W{worker_id} {idx}/{len(repos)}] {owner}/{repo_name} ({stars:,} ⭐)")
@@ -409,8 +431,9 @@ class BatchReadmeScrapper:
         print(f"Configuration:")
         print(f"  Stars: {min_stars:,} to {max_stars:,}")
         print(f"  Repos per hour: {repos_per_hour:,}")
-        print(f"  Workers: {MAX_WORKERS}")
-        print(f"  Tokens: {len(self.tokens)}")
+        print(f"  Workers: {self.max_workers}")
+        print(f"  Total Tokens: {len(self.tokens)}")
+        print(f"  Tokens per Worker: {self.tokens_per_worker}")
         print(f"  Output: {OUTPUT_CSV}")
         print(f"\n⏰ Total scraping started at: {total_start_time.strftime('%Y-%m-%d %H:%M:%S')}\n")
         
@@ -471,8 +494,13 @@ def main():
     print(f"\n{'='*80}")
     print(f"GITHUB BATCH README SCRAPER")
     print(f"{'='*80}\n")
+    print(f"Token Configuration:")
+    print(f"  Total tokens loaded: {len(github_tokens)}")
+    print(f"  Workers: {MAX_WORKERS}")
+    print(f"  Tokens per worker: {len(github_tokens) // MAX_WORKERS}")
+    print(f"  Repos per hour: {REPOS_PER_HOUR:,}\n")
     
-    scraper = BatchReadmeScrapper(github_tokens)
+    scraper = BatchReadmeScrapper(github_tokens, MAX_WORKERS)
     
     scraper.run_continuous_scraping(
         min_stars=MIN_STARS,
