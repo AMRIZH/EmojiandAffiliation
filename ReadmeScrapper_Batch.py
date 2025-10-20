@@ -19,7 +19,7 @@ MIN_STARS = 1000  # Minimum number of stars
 MAX_STARS = 150000  # Maximum number of stars
 MIN_CONTRIBUTORS = 0  # Minimum number of contributors (0 = no minimum, contributors = people who made commits)
 README_CHAR_LIMIT = 1000000  # Maximum number of characters to keep from README
-NUMBER_OF_TOKENS = 12  # Total number of GitHub tokens available in .env file
+NUMBER_OF_TOKENS = 13  # Total number of GitHub tokens available in .env file
 MAX_WORKERS = 4  # Number of parallel threads (can be less than NUMBER_OF_TOKENS for fewer logical processors)
 
 # Load GitHub tokens from environment variables
@@ -541,17 +541,26 @@ class BatchReadmeScrapper:
             all_batch_data = []
             
             # Scrape in chunks until all tokens exhausted
+            chunk_count = 0
             while current_idx < total_repos and not self._all_tokens_limited():
                 # Take a chunk of repos to scrape
                 chunk_size = 500
                 end_idx = min(current_idx + chunk_size, total_repos)
                 chunk_repos = all_repos[current_idx:end_idx]
                 
-                # Scrape this chunk
-                chunk_data = self.scrape_batch(chunk_repos, batch_num, "∞")
+                chunk_count += 1
+                
+                # Scrape this chunk (show "Batch X - Chunk Y" format)
+                print(f"\n📦 Batch {batch_num} - Chunk {chunk_count}")
+                chunk_data = self.scrape_batch(chunk_repos, f"{batch_num}.{chunk_count}", "⚡")
                 all_batch_data.extend(chunk_data)
                 
                 current_idx = end_idx
+                
+                # Show chunk progress
+                repos_so_far = current_idx - batch_start_idx
+                print(f"   Chunk complete: {len(chunk_data):,} repos scraped in this chunk")
+                print(f"   Batch progress: {repos_so_far:,} repos scraped this batch")
                 
                 # Check if we should stop
                 if self._all_tokens_limited():
@@ -564,8 +573,18 @@ class BatchReadmeScrapper:
                 is_first_save = False
             
             repos_scraped = current_idx - batch_start_idx
-            print(f"\n✅ Batch {batch_num} complete: {repos_scraped:,} repos scraped")
-            print(f"📈 Total progress: {current_idx:,}/{total_repos:,} repos ({current_idx/total_repos*100:.1f}%)")
+            print(f"\n{'='*80}")
+            print(f"✅ BATCH {batch_num} COMPLETE")
+            print(f"{'='*80}")
+            print(f"📊 Batch Statistics:")
+            print(f"   Repos scraped this batch: {repos_scraped:,}")
+            print(f"   Chunks processed: {chunk_count}")
+            print(f"   Average repos/chunk: {repos_scraped/chunk_count:.1f}")
+            print(f"\n📈 Overall Progress:")
+            print(f"   Total scraped: {current_idx:,} / {total_repos:,} repos")
+            print(f"   Progress: {current_idx/total_repos*100:.2f}%")
+            print(f"   Remaining: {total_repos - current_idx:,} repos")
+            print(f"{'='*80}")
             
             # Wait for rate limit reset if not done
             if current_idx < total_repos:
