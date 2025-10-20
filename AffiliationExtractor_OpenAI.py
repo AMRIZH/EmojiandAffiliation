@@ -24,13 +24,13 @@ class AffiliationExtractorOpenAI:
 
 Analyze the README and description content to classify the repository's affiliation/activism:
 
-- israel (if mentions: Israel, Israeli support, Israeli tech, pro-Israel, Stand with Israel, 🇮🇱, ✡️, 🎗️)
-- palestine (if mentions: Palestine, Gaza, Palestinian support, Free Palestine, pro-Palestine, 🇵🇸, 🍉)
-- blm (if mentions: Black Lives Matter, BLM, racial justice, anti-racism, ✊🏾, ✊🏿)
-- ukraine (if mentions: Ukraine, Ukrainian support, Stand with Ukraine, pro-Ukraine, 🇺🇦, 🌻)
-- climate (if mentions: Climate change, environmental activism, sustainability, climate action, ♻️, 🌱, 🌍)
-- feminism (if mentions: Women's rights, feminism, gender equality, women empowerment, ♀️, 👩)
-- lgbtq (if mentions: LGBTQ, LGBT, gay rights, pride, queer, transgender, 🏳️‍🌈, 🏳️‍⚧️)
+- israel (if mentions: Israel, Israeli support, Israeli tech, pro-Israel, Stand with Israel)
+- palestine (if mentions: Palestine, Gaza, Palestinian support, Free Palestine, pro-Palestine)
+- blm (if mentions: Black Lives Matter, BLM, racial justice, anti-racism)
+- ukraine (if mentions: Ukraine, Ukrainian support, Stand with Ukraine, pro-Ukraine)
+- climate (if mentions: Climate change, environmental activism, sustainability, climate action)
+- feminism (if mentions: Women's rights, feminism, gender equality, women empowerment)
+- lgbtq (if mentions: LGBTQ, LGBT, gay rights, pride, queer, transgender)
 - none (if no clear political/social activism affiliation found or neutral content)
 
 RULES:
