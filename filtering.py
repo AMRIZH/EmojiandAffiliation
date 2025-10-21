@@ -9,6 +9,20 @@ INPUT_CSV = "github_readmes_batch.csv"  # Input CSV file to filter
 OUTPUT_CSV = "Cleaned_github_readmes.csv"  # Output CSV file (default: github_filtered_TIMESTAMP.csv)
 MIN_STARS = 1000  # Minimum number of stars (set to 0 for no minimum)
 MAX_STARS = 200000  # Maximum number of stars (set to None for no maximum)
+MIN_CONTRIBUTORS = 0  # Minimum number of contributors (set to 0 for no minimum)
+MAX_CONTRIBUTORS = None  # Maximum number of contributors (set to None for no maximum)
+REFILTER = False  # Set to True to re-filter affiliation data (skips emoji detection, uses existing 'found_emojis' column)
+
+# ============================
+# RE-FILTERING AFFILIATION DATA (set REFILTER = True to use these)
+# ============================
+# INPUT_CSV = "github_affiliation_openai.csv"  # Affiliation extractor output
+# OUTPUT_CSV = "Cleaned_github_affiliation.csv"  # Re-filtered affiliation output
+# MIN_STARS = 1000  # Adjust as needed
+# MAX_STARS = 200000  # Adjust as needed
+# MIN_CONTRIBUTORS = 5  # Adjust as needed
+# MAX_CONTRIBUTORS = None  # Adjust as needed
+# REFILTER = True  # Enable re-filter mode
 
 # Political emojis to search for
 POLITICAL_EMOJIS = [
@@ -62,7 +76,7 @@ POLITICAL_EMOJIS = [
 
 
 class CSVFilter:
-    def __init__(self, input_csv, output_csv=None, emojis=None, min_stars=None, max_stars=None):
+    def __init__(self, input_csv, output_csv=None, emojis=None, min_stars=None, max_stars=None, min_contributors=None, max_contributors=None, refilter=False):
         """
         Initialize the CSV Filter
         
@@ -72,6 +86,9 @@ class CSVFilter:
             emojis: List of emojis to search for (optional, uses POLITICAL_EMOJIS if None)
             min_stars: Minimum star count (optional, filters repos below this)
             max_stars: Maximum star count (optional, filters repos above this)
+            min_contributors: Minimum contributor count (optional, filters repos below this)
+            max_contributors: Maximum contributor count (optional, filters repos above this)
+            refilter: If True, skip emoji detection and use existing 'found_emojis' column (for re-filtering affiliation data)
         """
         self.input_csv = input_csv
         
@@ -84,6 +101,9 @@ class CSVFilter:
         self.emojis = emojis if emojis is not None else POLITICAL_EMOJIS
         self.min_stars = min_stars if min_stars is not None else 0
         self.max_stars = max_stars
+        self.min_contributors = min_contributors if min_contributors is not None else 0
+        self.max_contributors = max_contributors
+        self.refilter = refilter
         self.df = None
         self.filtered_df = None
     
@@ -96,7 +116,10 @@ class CSVFilter:
         """
         try:
             print(f"\n{'='*60}")
-            print("CSV FILTERING - Political Emoji Detection")
+            if self.refilter:
+                print("CSV RE-FILTERING - Affiliation Data")
+            else:
+                print("CSV FILTERING - Political Emoji Detection")
             print(f"{'='*60}\n")
             
             print(f"📂 Loading CSV file: {self.input_csv}")
@@ -141,8 +164,11 @@ class CSVFilter:
         Returns:
             Filtered DataFrame
         """
-        print(f"🔍 Searching for political emojis in README and description...")
-        print(f"   Emoji list: {' '.join(self.emojis)}")
+        if self.refilter:
+            print(f"🔍 Re-filtering repositories (using existing 'found_emojis' column)...")
+        else:
+            print(f"🔍 Searching for political emojis in README and description...")
+            print(f"   Emoji list: {' '.join(self.emojis)}")
         if self.min_stars > 0 or self.max_stars is not None:
             star_range = f"{self.min_stars:,}"
             if self.max_stars is not None:
@@ -150,6 +176,13 @@ class CSVFilter:
             else:
                 star_range += "+"
             print(f"   Star range filter: {star_range} stars")
+        if self.min_contributors > 0 or self.max_contributors is not None:
+            contrib_range = f"{self.min_contributors:,}"
+            if self.max_contributors is not None:
+                contrib_range += f" to {self.max_contributors:,}"
+            else:
+                contrib_range += "+"
+            print(f"   Contributor range filter: {contrib_range} contributors")
         print()
         
         filtered_rows = []
@@ -162,37 +195,66 @@ class CSVFilter:
             readme = row.get('readme', '')
             description = row.get('description', '')
             
+            # Get contributor count (support both 'contributors' and legacy 'collaborators')
+            repo_contributors = row.get('contributors', row.get('collaborators', 0))
+            
             # Filter by star range first
             if repo_stars < self.min_stars:
                 continue
             if self.max_stars is not None and repo_stars > self.max_stars:
                 continue
             
-            # Check README and description
-            readme_has_emoji, readme_emojis = self.contains_emoji(readme)
-            desc_has_emoji, desc_emojis = self.contains_emoji(description)
+            # Filter by contributor range
+            if repo_contributors < self.min_contributors:
+                continue
+            if self.max_contributors is not None and repo_contributors > self.max_contributors:
+                continue
             
-            # Combine found emojis
-            all_found_emojis = list(set(readme_emojis + desc_emojis))
-            
-            if readme_has_emoji or desc_has_emoji:
-                print(f"✅ [{len(filtered_rows)+1}] {repo_owner}/{repo_name}")
-                print(f"   Found emojis: {' '.join(all_found_emojis)}")
+            # REFILTER MODE: Skip emoji detection, use existing 'found_emojis' column
+            if self.refilter:
+                # In refilter mode, we just apply star/contributor filters
+                # The 'found_emojis' column should already exist from previous filtering
+                existing_emojis = row.get('found_emojis', '')
+                if pd.notna(existing_emojis) and existing_emojis:
+                    all_found_emojis = existing_emojis.split()
+                    
+                    print(f"✅ [{len(filtered_rows)+1}] {repo_owner}/{repo_name}")
+                    print(f"   Emojis: {existing_emojis}")
+                    if 'affiliation' in row:
+                        print(f"   Affiliation: {row['affiliation']}")
+                    print()
+                    
+                    # Track emoji statistics
+                    for emoji in all_found_emojis:
+                        emoji_stats[emoji] = emoji_stats.get(emoji, 0) + 1
+                    
+                    filtered_rows.append(row.copy())
+            else:
+                # NORMAL MODE: Check README and description for emojis
+                readme_has_emoji, readme_emojis = self.contains_emoji(readme)
+                desc_has_emoji, desc_emojis = self.contains_emoji(description)
                 
-                if readme_has_emoji:
-                    print(f"   📝 README: {' '.join(readme_emojis)}")
-                if desc_has_emoji:
-                    print(f"   📄 Description: {' '.join(desc_emojis)}")
-                print()
+                # Combine found emojis
+                all_found_emojis = list(set(readme_emojis + desc_emojis))
                 
-                # Track emoji statistics
-                for emoji in all_found_emojis:
-                    emoji_stats[emoji] = emoji_stats.get(emoji, 0) + 1
-                
-                # Add found emojis as a new column (space-separated string)
-                row_with_emojis = row.copy()
-                row_with_emojis['found_emojis'] = ' '.join(all_found_emojis)
-                filtered_rows.append(row_with_emojis)
+                if readme_has_emoji or desc_has_emoji:
+                    print(f"✅ [{len(filtered_rows)+1}] {repo_owner}/{repo_name}")
+                    print(f"   Found emojis: {' '.join(all_found_emojis)}")
+                    
+                    if readme_has_emoji:
+                        print(f"   📝 README: {' '.join(readme_emojis)}")
+                    if desc_has_emoji:
+                        print(f"   📄 Description: {' '.join(desc_emojis)}")
+                    print()
+                    
+                    # Track emoji statistics
+                    for emoji in all_found_emojis:
+                        emoji_stats[emoji] = emoji_stats.get(emoji, 0) + 1
+                    
+                    # Add found emojis as a new column (space-separated string)
+                    row_with_emojis = row.copy()
+                    row_with_emojis['found_emojis'] = ' '.join(all_found_emojis)
+                    filtered_rows.append(row_with_emojis)
         
         self.filtered_df = pd.DataFrame(filtered_rows)
         
@@ -230,11 +292,12 @@ class CSVFilter:
             print(f"\n{'='*60}")
             print(f"💾 Saving filtered data to: {self.output_csv}")
             
-            # Reorder columns to put found_emojis at the end
-            cols = [col for col in self.filtered_df.columns if col != 'found_emojis']
-            if 'found_emojis' in self.filtered_df.columns:
-                cols.append('found_emojis')
-            self.filtered_df = self.filtered_df[cols]
+            # Reorder columns to put found_emojis at the end (only in normal mode)
+            if not self.refilter:
+                cols = [col for col in self.filtered_df.columns if col != 'found_emojis']
+                if 'found_emojis' in self.filtered_df.columns:
+                    cols.append('found_emojis')
+                self.filtered_df = self.filtered_df[cols]
             
             self.filtered_df.to_csv(self.output_csv, index=False, encoding='utf-8')
             
@@ -316,6 +379,15 @@ class CSVFilter:
             print(f"   Average emojis per repo: {avg_emojis:.1f}")
             print(f"   Max emojis in a repo: {int(max_emojis)}")
         
+        # Affiliation statistics (for refilter mode)
+        if self.refilter and 'affiliation' in self.filtered_df.columns:
+            affiliation_counts = self.filtered_df['affiliation'].value_counts()
+            
+            print(f"\n🏢 Affiliation Distribution:")
+            for affiliation, count in affiliation_counts.items():
+                percentage = (count / len(self.filtered_df)) * 100
+                print(f"   {affiliation}: {count} ({percentage:.1f}%)")
+        
         print(f"\n{'='*60}\n")
     
     def run(self):
@@ -348,16 +420,23 @@ def main():
     Main function to run the CSV filter
     """
     print(f"\n{'='*60}")
-    print("GITHUB REPOSITORY EMOJI FILTER")
+    if REFILTER:
+        print("GITHUB REPOSITORY RE-FILTER (Affiliation Data)")
+    else:
+        print("GITHUB REPOSITORY EMOJI FILTER")
     print(f"{'='*60}")
     print(f"\nConfiguration:")
+    print(f"  Mode: {'RE-FILTER (using existing emojis)' if REFILTER else 'FILTER (detect emojis)'}")
     print(f"  Input CSV: {INPUT_CSV}")
     print(f"  Output CSV: {OUTPUT_CSV if OUTPUT_CSV else 'Auto-generated with timestamp'}")
     print(f"  Star range: {MIN_STARS:,} to {MAX_STARS:,}" if MAX_STARS else f"  Minimum stars: {MIN_STARS:,}")
-    print(f"  Number of emojis to search: {len(POLITICAL_EMOJIS)}")
+    if MIN_CONTRIBUTORS > 0 or MAX_CONTRIBUTORS is not None:
+        print(f"  Contributor range: {MIN_CONTRIBUTORS:,} to {MAX_CONTRIBUTORS:,}" if MAX_CONTRIBUTORS else f"  Minimum contributors: {MIN_CONTRIBUTORS:,}")
+    if not REFILTER:
+        print(f"  Number of emojis to search: {len(POLITICAL_EMOJIS)}")
     
     # Create filter instance
-    csv_filter = CSVFilter(INPUT_CSV, OUTPUT_CSV, POLITICAL_EMOJIS, MIN_STARS, MAX_STARS)
+    csv_filter = CSVFilter(INPUT_CSV, OUTPUT_CSV, POLITICAL_EMOJIS, MIN_STARS, MAX_STARS, MIN_CONTRIBUTORS, MAX_CONTRIBUTORS, REFILTER)
     
     # Run filtering
     success = csv_filter.run()
