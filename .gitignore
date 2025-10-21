@@ -8,3 +8,4 @@ results/
 venv/
 statistical_analysis/
 cache/
+*.json
