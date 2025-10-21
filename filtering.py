@@ -7,6 +7,8 @@ from datetime import datetime
 # ============================
 INPUT_CSV = "github_readmes_batch.csv"  # Input CSV file to filter
 OUTPUT_CSV = "Cleaned_github_readmes.csv"  # Output CSV file (default: github_filtered_TIMESTAMP.csv)
+MIN_STARS = 500  # Minimum number of stars (set to 0 for no minimum)
+MAX_STARS = 200000  # Maximum number of stars (set to None for no maximum)
 
 # Political emojis to search for
 POLITICAL_EMOJIS = [
@@ -51,6 +53,7 @@ POLITICAL_EMOJIS = [
     
     # LGBTQ+ Activism
     "�🌈",       # Rainbow - LGBTQ+ rights/Pride
+    "🌈",       # Rainbow - LGBTQ+ rights/Pride
     "🏳️‍🌈",    # Rainbow Flag - LGBTQ+ Pride
     "🏳️‍⚧️",    # Transgender Flag - transgender rights
 ]
@@ -58,7 +61,7 @@ POLITICAL_EMOJIS = [
 
 
 class CSVFilter:
-    def __init__(self, input_csv, output_csv=None, emojis=None):
+    def __init__(self, input_csv, output_csv=None, emojis=None, min_stars=None, max_stars=None):
         """
         Initialize the CSV Filter
         
@@ -66,6 +69,8 @@ class CSVFilter:
             input_csv: Input CSV file to filter
             output_csv: Output CSV file (optional, will generate timestamp-based name if None)
             emojis: List of emojis to search for (optional, uses POLITICAL_EMOJIS if None)
+            min_stars: Minimum star count (optional, filters repos below this)
+            max_stars: Maximum star count (optional, filters repos above this)
         """
         self.input_csv = input_csv
         
@@ -76,6 +81,8 @@ class CSVFilter:
             self.output_csv = output_csv
         
         self.emojis = emojis if emojis is not None else POLITICAL_EMOJIS
+        self.min_stars = min_stars if min_stars is not None else 0
+        self.max_stars = max_stars
         self.df = None
         self.filtered_df = None
     
@@ -128,12 +135,21 @@ class CSVFilter:
     def filter_repositories(self):
         """
         Filter repositories that contain political emojis in README or description
+        Also filters by star range if specified
         
         Returns:
             Filtered DataFrame
         """
         print(f"🔍 Searching for political emojis in README and description...")
-        print(f"   Emoji list: {' '.join(self.emojis)}\n")
+        print(f"   Emoji list: {' '.join(self.emojis)}")
+        if self.min_stars > 0 or self.max_stars is not None:
+            star_range = f"{self.min_stars:,}"
+            if self.max_stars is not None:
+                star_range += f" to {self.max_stars:,}"
+            else:
+                star_range += "+"
+            print(f"   Star range filter: {star_range} stars")
+        print()
         
         filtered_rows = []
         emoji_stats = {}
@@ -141,8 +157,15 @@ class CSVFilter:
         for idx, row in self.df.iterrows():
             repo_owner = row.get('repo_owner', '')
             repo_name = row.get('repo_name', '')
+            repo_stars = row.get('repo_stars', 0)
             readme = row.get('readme', '')
             description = row.get('description', '')
+            
+            # Filter by star range first
+            if repo_stars < self.min_stars:
+                continue
+            if self.max_stars is not None and repo_stars > self.max_stars:
+                continue
             
             # Check README and description
             readme_has_emoji, readme_emojis = self.contains_emoji(readme)
@@ -329,10 +352,11 @@ def main():
     print(f"\nConfiguration:")
     print(f"  Input CSV: {INPUT_CSV}")
     print(f"  Output CSV: {OUTPUT_CSV if OUTPUT_CSV else 'Auto-generated with timestamp'}")
+    print(f"  Star range: {MIN_STARS:,} to {MAX_STARS:,}" if MAX_STARS else f"  Minimum stars: {MIN_STARS:,}")
     print(f"  Number of emojis to search: {len(POLITICAL_EMOJIS)}")
     
     # Create filter instance
-    csv_filter = CSVFilter(INPUT_CSV, OUTPUT_CSV, POLITICAL_EMOJIS)
+    csv_filter = CSVFilter(INPUT_CSV, OUTPUT_CSV, POLITICAL_EMOJIS, MIN_STARS, MAX_STARS)
     
     # Run filtering
     success = csv_filter.run()
