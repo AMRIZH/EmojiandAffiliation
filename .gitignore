@@ -9,3 +9,11 @@ venv/
 statistical_analysis/
 cache/
 *.json
+logs/
+Cleaned_github_readmes.csv
+github_readmes_batch.csv
+github_affiliation_openai.csv
+github_affiliation_deepseek.csv
+Cleaned_github_readmes_500stars.csv
+Cleaned_github_readmes_1000stars.csv
+Cleaned_github_affiliation.csv

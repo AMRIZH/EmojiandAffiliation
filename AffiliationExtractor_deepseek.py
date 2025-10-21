@@ -4,6 +4,8 @@ import time
 from datetime import datetime
 import os
 from dotenv import load_dotenv
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from threading import Lock
 
 # Load environment variables from .env file
 load_dotenv()
@@ -11,11 +13,12 @@ load_dotenv()
 # ============================
 # CONFIGURATION - Edit these variables
 # ============================
-INPUT_CSV = "Cleaned_github_readmes.csv"  # Input CSV file to process (output from filtering.py)
-OUTPUT_CSV = "github_affiliation.csv"  # Output CSV file with affiliation
+INPUT_CSV = "Cleaned_github_readmes_500stars.csv"  # Input CSV file to process (output from filtering.py)
+OUTPUT_CSV = "github_affiliation_deepseek.csv"  # Output CSV file with affiliation
 DEEPSEEK_API_KEY = os.getenv('deepseek_api_key')  # DeepSeek API key from .env
 MODEL_ID = "deepseek-chat"  # DeepSeek model ID
 MAX_RETRIES = 3  # Maximum number of retries for failed requests
+MAX_WORKERS = 12  # Number of parallel workers for multithreading
 # ============================
 
 class AffiliationExtractor:
@@ -56,6 +59,7 @@ RULES:
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json"
         }
+        self.print_lock = Lock()  # Thread-safe printing
     
     def classify_affiliation(self, readme_text, max_retries=3):
         """
@@ -141,6 +145,45 @@ RULES:
         print(f"      ❌ All retries failed, defaulting to 'none'")
         return 'none'
     
+    def process_single_repository(self, idx, row, total):
+        """
+        Process a single repository (thread-safe)
+        
+        Args:
+            idx: Repository index
+            row: DataFrame row
+            total: Total number of repositories
+            
+        Returns:
+            Tuple of (idx, affiliation)
+        """
+        repo_owner = row.get('repo_owner', 'unknown')
+        repo_name = row.get('repo_name', 'unknown')
+        readme = row.get('readme', '')
+        description = row.get('description', '')
+        found_emojis = row.get('found_emojis', '')
+        
+        # Combine description, found emojis, and readme for better classification
+        combined_text = f"Description: {description}\n"
+        if found_emojis:
+            combined_text += f"Found Emojis: {found_emojis}\n"
+        combined_text += f"\nREADME:\n{readme}" if readme else ""
+        
+        with self.print_lock:
+            print(f"[{idx + 1}/{total}] Processing {repo_owner}/{repo_name}...")
+            if found_emojis:
+                print(f"   Found emojis: {found_emojis}")
+        
+        affiliation = self.classify_affiliation(combined_text, max_retries=MAX_RETRIES)
+        
+        with self.print_lock:
+            print(f"   ✅ Affiliation: {affiliation.upper()}")
+        
+        # Rate limiting to avoid overwhelming the API
+        time.sleep(0.1)
+        
+        return idx, affiliation
+    
     def process_csv(self, input_file, output_file):
         """
         Process the CSV file and add affiliation column
@@ -175,35 +218,36 @@ RULES:
             print("❌ 'readme' column not found in CSV")
             return False
         
-        # Add affiliation column
+        # Add affiliation column with multithreading
         print("🔍 Analyzing affiliations using DeepSeek LLM...")
         print(f"   Model: {self.model_id}")
         print(f"   Prompt Caching: ENABLED (reduces costs)")
+        print(f"   Workers: {MAX_WORKERS} parallel threads")
         print(f"   Total repositories to process: {len(df):,}\n")
         
-        affiliations = []
+        # Initialize affiliations list with None
+        affiliations = [None] * len(df)
         
-        for idx, row in df.iterrows():
-            repo_owner = row.get('repo_owner', 'unknown')
-            repo_name = row.get('repo_name', 'unknown')
-            readme = row.get('readme', '')
-            description = row.get('description', '')
+        # Process repositories in parallel
+        with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+            # Submit all tasks
+            future_to_idx = {
+                executor.submit(self.process_single_repository, idx, row, len(df)): idx
+                for idx, row in df.iterrows()
+            }
             
-            # Combine description and readme for better classification
-            combined_text = f"Description: {description}\n\nREADME:\n{readme}" if description else readme
-            
-            print(f"[{idx + 1}/{len(df)}] Processing {repo_owner}/{repo_name}...")
-            
-            affiliation = self.classify_affiliation(combined_text, max_retries=MAX_RETRIES)
-            affiliations.append(affiliation)
-            
-            print(f"   ✅ Affiliation: {affiliation.upper()}")
-            
-            # Rate limiting to avoid overwhelming the API
-            time.sleep(0.5)
+            # Collect results as they complete
+            for future in as_completed(future_to_idx):
+                try:
+                    idx, affiliation = future.result()
+                    affiliations[idx] = affiliation
+                except Exception as e:
+                    idx = future_to_idx[future]
+                    print(f"\n❌ Error processing repository at index {idx}: {e}")
+                    affiliations[idx] = 'none'
         
         # Add affiliation column to dataframe
-        df['affiliation'] = affiliations
+        df['affiliation_deepseek'] = affiliations
         
         # Save to CSV
         print(f"\n💾 Saving results to {output_file}...")
@@ -213,10 +257,10 @@ RULES:
             
             # Statistics
             print("\n" + "=" * 60)
-            print("📊 AFFILIATION STATISTICS")
+            print("📊 AFFILIATION STATISTICS (DeepSeek)")
             print("=" * 60)
             
-            affiliation_counts = df['affiliation'].value_counts()
+            affiliation_counts = df['affiliation_deepseek'].value_counts()
             for affiliation, count in affiliation_counts.items():
                 percentage = (count / len(df)) * 100
                 print(f"{affiliation.upper():15s}: {count:4d} ({percentage:5.1f}%)")

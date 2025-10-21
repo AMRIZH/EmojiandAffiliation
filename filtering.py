@@ -158,11 +158,10 @@ class CSVFilter:
     
     def filter_repositories(self):
         """
-        Filter repositories that contain political emojis in README or description
-        Also filters by star range if specified
+        Display filtering configuration (deprecated - logic moved to run())
         
-        Returns:
-            Filtered DataFrame
+        This method now only displays the filter configuration.
+        The actual filtering is done in run() to properly capture emoji_stats.
         """
         if self.refilter:
             print(f"🔍 Re-filtering repositories (using existing 'found_emojis' column)...")
@@ -184,98 +183,6 @@ class CSVFilter:
                 contrib_range += "+"
             print(f"   Contributor range filter: {contrib_range} contributors")
         print()
-        
-        filtered_rows = []
-        emoji_stats = {}
-        
-        for idx, row in self.df.iterrows():
-            repo_owner = row.get('repo_owner', '')
-            repo_name = row.get('repo_name', '')
-            repo_stars = row.get('repo_stars', 0)
-            readme = row.get('readme', '')
-            description = row.get('description', '')
-            
-            # Get contributor count (support both 'contributors' and legacy 'collaborators')
-            repo_contributors = row.get('contributors', row.get('collaborators', 0))
-            
-            # Filter by star range first
-            if repo_stars < self.min_stars:
-                continue
-            if self.max_stars is not None and repo_stars > self.max_stars:
-                continue
-            
-            # Filter by contributor range
-            if repo_contributors < self.min_contributors:
-                continue
-            if self.max_contributors is not None and repo_contributors > self.max_contributors:
-                continue
-            
-            # REFILTER MODE: Skip emoji detection, use existing 'found_emojis' column
-            if self.refilter:
-                # In refilter mode, we just apply star/contributor filters
-                # The 'found_emojis' column should already exist from previous filtering
-                existing_emojis = row.get('found_emojis', '')
-                if pd.notna(existing_emojis) and existing_emojis:
-                    all_found_emojis = existing_emojis.split()
-                    
-                    print(f"✅ [{len(filtered_rows)+1}] {repo_owner}/{repo_name}")
-                    print(f"   Emojis: {existing_emojis}")
-                    if 'affiliation' in row:
-                        print(f"   Affiliation: {row['affiliation']}")
-                    print()
-                    
-                    # Track emoji statistics
-                    for emoji in all_found_emojis:
-                        emoji_stats[emoji] = emoji_stats.get(emoji, 0) + 1
-                    
-                    filtered_rows.append(row.copy())
-            else:
-                # NORMAL MODE: Check README and description for emojis
-                readme_has_emoji, readme_emojis = self.contains_emoji(readme)
-                desc_has_emoji, desc_emojis = self.contains_emoji(description)
-                
-                # Combine found emojis
-                all_found_emojis = list(set(readme_emojis + desc_emojis))
-                
-                if readme_has_emoji or desc_has_emoji:
-                    print(f"✅ [{len(filtered_rows)+1}] {repo_owner}/{repo_name}")
-                    print(f"   Found emojis: {' '.join(all_found_emojis)}")
-                    
-                    if readme_has_emoji:
-                        print(f"   📝 README: {' '.join(readme_emojis)}")
-                    if desc_has_emoji:
-                        print(f"   📄 Description: {' '.join(desc_emojis)}")
-                    print()
-                    
-                    # Track emoji statistics
-                    for emoji in all_found_emojis:
-                        emoji_stats[emoji] = emoji_stats.get(emoji, 0) + 1
-                    
-                    # Add found emojis as a new column (space-separated string)
-                    row_with_emojis = row.copy()
-                    row_with_emojis['found_emojis'] = ' '.join(all_found_emojis)
-                    filtered_rows.append(row_with_emojis)
-        
-        self.filtered_df = pd.DataFrame(filtered_rows)
-        
-        print(f"\n{'='*60}")
-        print(f"FILTERING RESULTS")
-        print(f"{'='*60}")
-        print(f"📊 Total repositories scanned: {len(self.df):,}")
-        print(f"✅ Repositories with political emojis: {len(self.filtered_df):,}")
-        print(f"❌ Repositories filtered out: {len(self.df) - len(self.filtered_df):,}")
-        print(f"📈 Retention rate: {(len(self.filtered_df) / len(self.df) * 100):.2f}%")
-        
-        # Show emoji statistics
-        if emoji_stats:
-            print(f"\n{'='*60}")
-            print(f"EMOJI STATISTICS")
-            print(f"{'='*60}")
-            sorted_stats = sorted(emoji_stats.items(), key=lambda x: x[1], reverse=True)
-            for emoji, count in sorted_stats:
-                print(f"{emoji}  : {count:3d} repositories")
-        
-        return self.filtered_df
     
     def save_filtered_csv(self):
         """
@@ -308,6 +215,142 @@ class CSVFilter:
         except Exception as e:
             print(f"❌ Error saving CSV: {e}")
             return False
+    
+    def save_report_to_log(self, emoji_stats):
+        """
+        Save filtering report to logs/filterresult.txt
+        
+        Args:
+            emoji_stats: Dictionary of emoji statistics from filtering
+        """
+        import os
+        
+        try:
+            # Create logs directory if it doesn't exist
+            os.makedirs('logs', exist_ok=True)
+            
+            log_file = 'logs/filterresult.txt'
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            
+            with open(log_file, 'a', encoding='utf-8') as f:
+                f.write(f"\n{'='*60}\n")
+                f.write(f"FILTERING REPORT - {timestamp}\n")
+                f.write(f"{'='*60}\n")
+                f.write(f"Mode: {'RE-FILTER' if self.refilter else 'FILTER'}\n")
+                f.write(f"Input: {self.input_csv}\n")
+                f.write(f"Output: {self.output_csv}\n")
+                f.write(f"\n{'='*60}\n")
+                f.write(f"FILTERING RESULTS\n")
+                f.write(f"{'='*60}\n")
+                f.write(f"📊 Total repositories scanned: {len(self.df):,}\n")
+                f.write(f"✅ Repositories with political emojis: {len(self.filtered_df):,}\n")
+                f.write(f"❌ Repositories filtered out: {len(self.df) - len(self.filtered_df):,}\n")
+                f.write(f"📈 Retention rate: {(len(self.filtered_df) / len(self.df) * 100):.2f}%\n")
+                
+                # Emoji statistics
+                if emoji_stats:
+                    f.write(f"\n{'='*60}\n")
+                    f.write(f"EMOJI STATISTICS\n")
+                    f.write(f"{'='*60}\n")
+                    sorted_stats = sorted(emoji_stats.items(), key=lambda x: x[1], reverse=True)
+                    for emoji, count in sorted_stats:
+                        f.write(f"{emoji}  : {count:3d} repositories\n")
+                
+                # Summary statistics
+                if self.filtered_df is not None and len(self.filtered_df) > 0:
+                    f.write(f"{'='*60}\n")
+                    f.write(f"SUMMARY STATISTICS\n")
+                    f.write(f"{'='*60}\n")
+                    
+                    # Star statistics
+                    if 'repo_stars' in self.filtered_df.columns:
+                        total_stars = self.filtered_df['repo_stars'].sum()
+                        avg_stars = self.filtered_df['repo_stars'].mean()
+                        max_stars = self.filtered_df['repo_stars'].max()
+                        min_stars = self.filtered_df['repo_stars'].min()
+                        
+                        f.write(f"\n⭐ Stars:\n")
+                        f.write(f"   Total: {total_stars:,}\n")
+                        f.write(f"   Average: {avg_stars:,.0f}\n")
+                        f.write(f"   Max: {max_stars:,}\n")
+                        f.write(f"   Min: {min_stars:,}\n")
+                    
+                    # Contributors statistics
+                    contrib_col = 'contributors' if 'contributors' in self.filtered_df.columns else 'collaborators'
+                    if contrib_col in self.filtered_df.columns:
+                        total_contrib = self.filtered_df[contrib_col].sum()
+                        avg_contrib = self.filtered_df[contrib_col].mean()
+                        
+                        f.write(f"\n👥 Contributors:\n")
+                        f.write(f"   Total: {total_contrib:,}\n")
+                        f.write(f"   Average: {avg_contrib:.1f}\n")
+                    
+                    # README statistics
+                    if 'readme' in self.filtered_df.columns:
+                        repos_with_readme = self.filtered_df['readme'].notna().sum()
+                        readme_lengths = self.filtered_df[self.filtered_df['readme'].notna()]['readme'].str.len()
+                        if len(readme_lengths) > 0:
+                            avg_readme_length = readme_lengths.mean()
+                            
+                            f.write(f"\n📝 README:\n")
+                            f.write(f"   Repositories with README: {repos_with_readme}/{len(self.filtered_df)}\n")
+                            f.write(f"   Average README length: {avg_readme_length:,.0f} characters\n")
+                    
+                    # Description statistics
+                    if 'description' in self.filtered_df.columns:
+                        repos_with_desc = self.filtered_df['description'].notna().sum()
+                        repos_with_desc = repos_with_desc - (self.filtered_df['description'] == '').sum()
+                        
+                        f.write(f"\n📄 Description:\n")
+                        f.write(f"   Repositories with description: {repos_with_desc}/{len(self.filtered_df)}\n")
+                    
+                    # Topics statistics
+                    if 'topics' in self.filtered_df.columns:
+                        repos_with_topics = self.filtered_df['topics'].notna().sum()
+                        repos_with_topics = repos_with_topics - (self.filtered_df['topics'] == '').sum()
+                        
+                        f.write(f"\n🏷️  Topics:\n")
+                        f.write(f"   Repositories with topics: {repos_with_topics}/{len(self.filtered_df)}\n")
+                    
+                    # Found emojis statistics
+                    if 'found_emojis' in self.filtered_df.columns:
+                        avg_emojis = self.filtered_df['found_emojis'].str.split().str.len().mean()
+                        max_emojis = self.filtered_df['found_emojis'].str.split().str.len().max()
+                        
+                        f.write(f"\n😀 Found Emojis:\n")
+                        f.write(f"   Average emojis per repo: {avg_emojis:.1f}\n")
+                        f.write(f"   Max emojis in a repo: {int(max_emojis)}\n")
+                    
+                    # Affiliation statistics (for refilter mode)
+                    if self.refilter and ('affiliation' in self.filtered_df.columns or 
+                                          'affiliation_openai' in self.filtered_df.columns or 
+                                          'affiliation_deepseek' in self.filtered_df.columns):
+                        # Check which affiliation column exists
+                        affiliation_col = None
+                        if 'affiliation_openai' in self.filtered_df.columns:
+                            affiliation_col = 'affiliation_openai'
+                        elif 'affiliation_deepseek' in self.filtered_df.columns:
+                            affiliation_col = 'affiliation_deepseek'
+                        elif 'affiliation' in self.filtered_df.columns:
+                            affiliation_col = 'affiliation'
+                        
+                        if affiliation_col:
+                            affiliation_counts = self.filtered_df[affiliation_col].value_counts()
+                            
+                            f.write(f"\n🏢 Affiliation Distribution ({affiliation_col}):\n")
+                            for affiliation, count in affiliation_counts.items():
+                                percentage = (count / len(self.filtered_df)) * 100
+                                f.write(f"   {affiliation}: {count} ({percentage:.1f}%)\n")
+                
+                f.write(f"\n{'='*60}\n")
+                f.write(f"💾 Output saved to: {self.output_csv}\n")
+                f.write(f"✅ Successfully saved {len(self.filtered_df):,} repositories\n")
+                f.write(f"{'='*60}\n\n")
+            
+            print(f"📋 Report appended to: {log_file}")
+            
+        except Exception as e:
+            print(f"⚠️  Warning: Could not save report to log file: {e}")
     
     def show_summary(self):
         """
@@ -380,13 +423,25 @@ class CSVFilter:
             print(f"   Max emojis in a repo: {int(max_emojis)}")
         
         # Affiliation statistics (for refilter mode)
-        if self.refilter and 'affiliation' in self.filtered_df.columns:
-            affiliation_counts = self.filtered_df['affiliation'].value_counts()
+        if self.refilter and ('affiliation' in self.filtered_df.columns or 
+                              'affiliation_openai' in self.filtered_df.columns or 
+                              'affiliation_deepseek' in self.filtered_df.columns):
+            # Check which affiliation column exists
+            affiliation_col = None
+            if 'affiliation_openai' in self.filtered_df.columns:
+                affiliation_col = 'affiliation_openai'
+            elif 'affiliation_deepseek' in self.filtered_df.columns:
+                affiliation_col = 'affiliation_deepseek'
+            elif 'affiliation' in self.filtered_df.columns:
+                affiliation_col = 'affiliation'
             
-            print(f"\n🏢 Affiliation Distribution:")
-            for affiliation, count in affiliation_counts.items():
-                percentage = (count / len(self.filtered_df)) * 100
-                print(f"   {affiliation}: {count} ({percentage:.1f}%)")
+            if affiliation_col:
+                affiliation_counts = self.filtered_df[affiliation_col].value_counts()
+                
+                print(f"\n🏢 Affiliation Distribution ({affiliation_col}):")
+                for affiliation, count in affiliation_counts.items():
+                    percentage = (count / len(self.filtered_df)) * 100
+                    print(f"   {affiliation}: {count} ({percentage:.1f}%)")
         
         print(f"\n{'='*60}\n")
     
@@ -401,8 +456,53 @@ class CSVFilter:
         if not self.load_csv():
             return False
         
-        # Filter repositories
-        self.filter_repositories()
+        # Filter repositories and capture emoji stats
+        emoji_stats = {}
+        filtered_rows = []
+        
+        # Inline filtering to capture emoji_stats
+        for idx, row in self.df.iterrows():
+            repo_owner = row.get('repo_owner', '')
+            repo_name = row.get('repo_name', '')
+            repo_stars = row.get('repo_stars', 0)
+            readme = row.get('readme', '')
+            description = row.get('description', '')
+            
+            repo_contributors = row.get('contributors', row.get('collaborators', 0))
+            
+            if repo_stars < self.min_stars:
+                continue
+            if self.max_stars is not None and repo_stars > self.max_stars:
+                continue
+            
+            if repo_contributors < self.min_contributors:
+                continue
+            if self.max_contributors is not None and repo_contributors > self.max_contributors:
+                continue
+            
+            if self.refilter:
+                existing_emojis = row.get('found_emojis', '')
+                if pd.notna(existing_emojis) and existing_emojis:
+                    all_found_emojis = existing_emojis.split()
+                    for emoji in all_found_emojis:
+                        emoji_stats[emoji] = emoji_stats.get(emoji, 0) + 1
+                    filtered_rows.append(row.copy())
+            else:
+                readme_has_emoji, readme_emojis = self.contains_emoji(readme)
+                desc_has_emoji, desc_emojis = self.contains_emoji(description)
+                all_found_emojis = list(set(readme_emojis + desc_emojis))
+                
+                if readme_has_emoji or desc_has_emoji:
+                    for emoji in all_found_emojis:
+                        emoji_stats[emoji] = emoji_stats.get(emoji, 0) + 1
+                    row_with_emojis = row.copy()
+                    row_with_emojis['found_emojis'] = ' '.join(all_found_emojis)
+                    filtered_rows.append(row_with_emojis)
+        
+        self.filtered_df = pd.DataFrame(filtered_rows)
+        
+        # Display results
+        self._display_filter_results(emoji_stats)
         
         # Show summary
         self.show_summary()
@@ -411,8 +511,34 @@ class CSVFilter:
         if not self.save_filtered_csv():
             return False
         
+        # Save report to log file
+        self.save_report_to_log(emoji_stats)
+        
         print("✅ Filtering completed successfully!\n")
         return True
+    
+    def _display_filter_results(self, emoji_stats):
+        """
+        Display filtering results and emoji statistics
+        
+        Args:
+            emoji_stats: Dictionary of emoji counts
+        """
+        print(f"\n{'='*60}")
+        print(f"FILTERING RESULTS")
+        print(f"{'='*60}")
+        print(f"📊 Total repositories scanned: {len(self.df):,}")
+        print(f"✅ Repositories with political emojis: {len(self.filtered_df):,}")
+        print(f"❌ Repositories filtered out: {len(self.df) - len(self.filtered_df):,}")
+        print(f"📈 Retention rate: {(len(self.filtered_df) / len(self.df) * 100):.2f}%")
+        
+        if emoji_stats:
+            print(f"\n{'='*60}")
+            print(f"EMOJI STATISTICS")
+            print(f"{'='*60}")
+            sorted_stats = sorted(emoji_stats.items(), key=lambda x: x[1], reverse=True)
+            for emoji, count in sorted_stats:
+                print(f"{emoji}  : {count:3d} repositories")
 
 
 def main():
