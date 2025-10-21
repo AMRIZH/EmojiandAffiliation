@@ -7,7 +7,7 @@ from datetime import datetime
 load_dotenv()
 
 # Configuration
-NUMBER_OF_TOKENS = 13  # Must match the value in ReadmeScrapper_Batch.py
+NUMBER_OF_TOKENS = 20  # Must match the value in ReadmeScrapper_Batch.py
 
 def test_github_token(token, token_number):
     """

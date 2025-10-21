@@ -4,6 +4,7 @@ import time
 import base64
 from datetime import datetime, timedelta
 import os
+import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import threading
 from dotenv import load_dotenv
@@ -15,12 +16,13 @@ load_dotenv()
 # CONFIGURATION - Edit these variables
 # ============================
 OUTPUT_CSV = "github_readmes_batch.csv"  # Main output file (will be appended to)
-MIN_STARS = 1000  # Minimum number of stars
-MAX_STARS = 150000  # Maximum number of stars
+MIN_STARS = 500  # Minimum number of stars
+MAX_STARS = 200000  # Maximum number of stars
 MIN_CONTRIBUTORS = 0  # Minimum number of contributors (0 = no minimum, contributors = people who made commits)
-README_CHAR_LIMIT = 1000000  # Maximum number of characters to keep from README
-NUMBER_OF_TOKENS = 13  # Total number of GitHub tokens available in .env file
-MAX_WORKERS = 4  # Number of parallel threads (can be less than NUMBER_OF_TOKENS for fewer logical processors)
+README_CHAR_LIMIT = 10000000  # Maximum number of characters to keep from README
+NUMBER_OF_TOKENS = 20  # Total number of GitHub tokens available in .env file
+MAX_WORKERS = 10  # Number of parallel threads (can be less than NUMBER_OF_TOKENS for fewer logical processors)
+PARALLEL_SCAN_WORKERS = 4  # Number of parallel workers for scanning phase (1-20, recommended: 4-8)
 
 # Load GitHub tokens from environment variables
 github_tokens = []
@@ -78,36 +80,138 @@ class BatchReadmeScrapper:
                 'reset_time': None,
                 'is_limited': False
             }
+        
+        # Tracking statistics for logging
+        self.sleep_cycles = 0
+        self.batch_durations = []
+        self.scan_duration = None
+        
+        # Cache management
+        self.cache_dir = "cache"
+        os.makedirs(self.cache_dir, exist_ok=True)
     
     def get_all_unique_repos(self, min_stars, max_stars):
         """
         Step 1: Scan for ALL unique repositories by using fine-grained star ranges
+        OPTIMIZED: Parallel scanning with multiple tokens + smart initial range sizing + cache
         
         Returns:
             List of all unique repository URLs with metadata
         """
         print(f"\n{'='*80}")
-        print(f"STEP 1: SCANNING FOR ALL UNIQUE REPOSITORIES")
+        print(f"STEP 1: SCANNING FOR ALL UNIQUE REPOSITORIES (PARALLEL MODE + CACHE)")
         print(f"{'='*80}\n")
         print(f"Star range: {min_stars:,} to {max_stars:,}")
-        print(f"Strategy: Fine-grained star-based pagination to bypass 1,000 limit")
+        print(f"Strategy: Parallel fine-grained star-based pagination with caching")
+        print(f"Parallel workers: {PARALLEL_SCAN_WORKERS}\n")
+        
+        # Try to load from cache first
+        print(f"🔍 Checking for cached data...")
+        cached_repos = self._load_cache(min_stars, max_stars)
+        
+        if cached_repos is not None:
+            print(f"✅ Using cached data, skipping scan phase!\n")
+            return cached_repos
+        
+        print(f"❌ No cache found, starting fresh scan...\n")
         
         scan_start_time = datetime.now()
         print(f"⏰ Scanning started at: {scan_start_time.strftime('%Y-%m-%d %H:%M:%S')}\n")
         
+        # Split star range into chunks for parallel scanning
+        num_parallel_scanners = min(PARALLEL_SCAN_WORKERS, len(self.all_headers))
+        star_range_total = max_stars - min_stars
+        chunk_size = star_range_total // num_parallel_scanners
+        
+        scan_ranges = []
+        for i in range(num_parallel_scanners):
+            chunk_min = min_stars + (i * chunk_size)
+            chunk_max = min_stars + ((i + 1) * chunk_size) - 1 if i < num_parallel_scanners - 1 else max_stars
+            scan_ranges.append((chunk_min, chunk_max, i))
+        
+        print(f"🚀 Parallel scanning with {num_parallel_scanners} tokens:")
+        for chunk_min, chunk_max, idx in scan_ranges:
+            print(f"   Token {idx+1}: {chunk_min:,} to {chunk_max:,} stars")
+        print()
+        
+        # Parallel scanning with ThreadPoolExecutor
+        all_repos = []
+        with ThreadPoolExecutor(max_workers=num_parallel_scanners) as executor:
+            futures = {}
+            for chunk_min, chunk_max, token_idx in scan_ranges:
+                future = executor.submit(
+                    self._scan_star_range,
+                    chunk_min, chunk_max, token_idx, min_stars
+                )
+                futures[future] = (chunk_min, chunk_max, token_idx)
+            
+            for future in as_completed(futures):
+                chunk_min, chunk_max, token_idx = futures[future]
+                try:
+                    repos = future.result()
+                    all_repos.extend(repos)
+                    with self.print_lock:
+                        print(f"✅ Token {token_idx+1} completed: {len(repos):,} repos from {chunk_min:,}-{chunk_max:,}")
+                except Exception as e:
+                    with self.print_lock:
+                        print(f"❌ Token {token_idx+1} failed for range {chunk_min:,}-{chunk_max:,}: {e}")
+        
+        scan_end_time = datetime.now()
+        scan_duration = scan_end_time - scan_start_time
+        scan_minutes = scan_duration.total_seconds() / 60
+        
+        # Store scan duration for final report
+        self.scan_duration = scan_duration
+        
+        print(f"\n✅ Scan complete: Found {len(all_repos):,} total unique repositories")
+        print(f"⏱️  Scanning duration: {int(scan_minutes)} minutes {int(scan_duration.total_seconds() % 60)} seconds\n")
+        
+        # Save to cache for future runs
+        print(f"💾 Saving scan results to cache...")
+        self._save_cache(min_stars, max_stars, all_repos)
+        
+        return all_repos
+    
+    def _get_smart_initial_range(self, stars):
+        """
+        Smart initial range sizing based on star density
+        High stars = sparse (large range), Low stars = dense (small range)
+        """
+        if stars >= 100000:
+            return 10000  # Very sparse
+        elif stars >= 50000:
+            return 5000   # Sparse
+        elif stars >= 20000:
+            return 3000   # Moderate-sparse
+        elif stars >= 10000:
+            return 2000   # Moderate
+        elif stars >= 5000:
+            return 1000   # Moderate-dense
+        elif stars >= 2000:
+            return 500    # Dense
+        elif stars >= 1000:
+            return 200    # Very dense
+        else:
+            return 100    # Extremely dense
+    
+    def _scan_star_range(self, min_stars, max_stars, token_idx, global_min):
+        """
+        Scan a specific star range with one token (used for parallel scanning)
+        """
+        headers = self.all_headers[token_idx]
         all_repos = []
         current_max = max_stars
-        range_size = 2000  # Start with larger range (more efficient)
+        range_size = self._get_smart_initial_range(max_stars)  # Smart initial sizing
         
         # Work backwards from high stars to low stars
         while current_max >= min_stars:
             current_min = max(min_stars, current_max - range_size)
             
             with self.print_lock:
-                print(f"🔍 Scanning stars {current_min:,} to {current_max:,}... (range: {range_size})")
+                print(f"[T{token_idx+1}] 🔍 {current_min:,}-{current_max:,} (range: {range_size})")
             
-            # Use first token for scanning
-            repos = self._search_repo_metadata(current_min, current_max, self.all_headers[0])
+            # Use assigned token for this range
+            repos = self._search_repo_metadata(current_min, current_max, headers)
             
             if repos:
                 # Check if we hit the 1,000 limit
@@ -115,12 +219,14 @@ class BatchReadmeScrapper:
                     with self.print_lock:
                         print(f"   ⚠️  Hit 1,000 limit! Re-scanning with smaller ranges to avoid data loss...")
                     
-                    # Re-scan this range with smaller chunks
-                    new_range_size = max(10, range_size // 3)
+                    # Re-scan this range with smaller chunks (more aggressive reduction)
+                    new_range_size = max(2, range_size // 5)  # More aggressive initial reduction
                     rescan_max = current_max
                     rescan_repos = []
+                    rescan_attempts = 0
+                    max_rescan_attempts = 5
                     
-                    while rescan_max >= current_min:
+                    while rescan_max >= current_min and rescan_attempts < max_rescan_attempts:
                         rescan_min = max(current_min, rescan_max - new_range_size)
                         
                         with self.print_lock:
@@ -129,25 +235,41 @@ class BatchReadmeScrapper:
                         chunk_repos = self._search_repo_metadata(rescan_min, rescan_max, self.all_headers[0])
                         
                         if chunk_repos:
-                            rescan_repos.extend(chunk_repos)
-                            with self.print_lock:
-                                print(f"      ✅ Found {len(chunk_repos)} repos | Re-scan total: {len(rescan_repos)}")
-                            
-                            # If still hitting limit in re-scan, reduce further
+                            # Check if we're still hitting the limit
                             if len(chunk_repos) >= 1000:
-                                new_range_size = max(10, new_range_size // 2)
                                 with self.print_lock:
-                                    print(f"      ⚠️  Still hit limit, reducing to {new_range_size}")
+                                    print(f"      ⚠️  Still hit 1,000 limit! Reducing range dramatically...")
+                                
+                                # Highly aggressive reduction when still hitting limit
+                                new_range_size = max(2, new_range_size // 4)
+                                rescan_attempts += 1
+                                
+                                with self.print_lock:
+                                    print(f"      🔻 New range size: {new_range_size} (attempt {rescan_attempts}/{max_rescan_attempts})")
+                                
+                                # Don't add these repos, re-scan with smaller range
+                                continue
+                            else:
+                                # Successfully got less than 1,000 repos
+                                rescan_repos.extend(chunk_repos)
+                                with self.print_lock:
+                                    print(f"      ✅ Found {len(chunk_repos)} repos | Re-scan total: {len(rescan_repos)}")
+                                
+                                # Move to next range
+                                rescan_max = rescan_min - 1
+                                rescan_attempts = 0  # Reset attempts counter
+                        else:
+                            # No repos found, move to next range
+                            rescan_max = rescan_min - 1
                         
-                        rescan_max = rescan_min - 1
-                        time.sleep(0.3)
+                        time.sleep(0.05)  # Reduced sleep time for faster scanning
                     
                     # Use re-scanned repos instead
                     all_repos.extend(rescan_repos)
                     with self.print_lock:
                         print(f"   ✅ Re-scan complete: {len(rescan_repos)} repos | Total: {len(all_repos):,}")
                     
-                    # Adjust range size for next iteration
+                    # Adjust range size for next iteration (keep it small after hitting limit)
                     range_size = new_range_size
                 else:
                     # No limit hit - add repos normally
@@ -172,14 +294,7 @@ class BatchReadmeScrapper:
                 range_size = min(10000, range_size * 2)
             
             current_max = current_min - 1
-            time.sleep(0.3)  # Reduced wait time for efficiency
-        
-        scan_end_time = datetime.now()
-        scan_duration = scan_end_time - scan_start_time
-        scan_minutes = scan_duration.total_seconds() / 60
-        
-        print(f"\n✅ Scan complete: Found {len(all_repos):,} total unique repositories")
-        print(f"⏱️  Scanning duration: {int(scan_minutes)} minutes {int(scan_duration.total_seconds() % 60)} seconds\n")
+            time.sleep(0.05)  # Optimized sleep time (4x faster)
         
         return all_repos
     
@@ -252,7 +367,7 @@ class BatchReadmeScrapper:
                     break
                 
                 page += 1
-                time.sleep(0.5)
+                time.sleep(0.1)  # Reduced from 0.3 to 0.1 for faster scanning
                 
             except Exception as e:
                 with self.print_lock:
@@ -369,9 +484,9 @@ class BatchReadmeScrapper:
                 "readme": readme_content or ""
             }
             repo_data_list.append(repo_data)
-            
-            time.sleep(0.3)  # Rate limiting
-        
+
+            time.sleep(0.2)  # Rate limiting
+
         return repo_data_list
     
     def _get_contributors_count(self, owner, repo, headers, token_index):
@@ -460,6 +575,8 @@ class BatchReadmeScrapper:
     
     def _wait_for_rate_limit_reset(self):
         """Wait until the earliest rate limit resets"""
+        self.sleep_cycles += 1
+        
         reset_time = self._get_earliest_reset_time()
         
         if reset_time is None:
@@ -539,6 +656,7 @@ class BatchReadmeScrapper:
             
             batch_start_idx = current_idx
             all_batch_data = []
+            batch_start_time = datetime.now()
             
             # Scrape in chunks until all tokens exhausted
             chunk_count = 0
@@ -572,6 +690,11 @@ class BatchReadmeScrapper:
                 self.save_batch_to_csv(all_batch_data, is_first_batch=is_first_save)
                 is_first_save = False
             
+            # Track batch duration
+            batch_end_time = datetime.now()
+            batch_duration = batch_end_time - batch_start_time
+            self.batch_durations.append(batch_duration)
+            
             repos_scraped = current_idx - batch_start_idx
             print(f"\n{'='*80}")
             print(f"✅ BATCH {batch_num} COMPLETE")
@@ -595,19 +718,150 @@ class BatchReadmeScrapper:
         total_hours = total_duration.total_seconds() / 3600
         total_minutes = (total_duration.total_seconds() % 3600) / 60
         
+        # Calculate statistics
+        avg_batch_duration = sum([d.total_seconds() for d in self.batch_durations]) / len(self.batch_durations) if self.batch_durations else 0
+        total_sleep_time = self.sleep_cycles * 3600  # Approximate (1 hour per sleep)
+        actual_work_time = total_duration.total_seconds() - total_sleep_time
+        
+        # Check if cache was used
+        cache_file = self._get_cache_filename(min_stars, max_stars)
+        cache_used = os.path.exists(cache_file) and self.scan_duration and self.scan_duration.total_seconds() < 10
+        
+        # Prepare report content
+        report_lines = []
+        report_lines.append("="*80)
+        report_lines.append("GITHUB README SCRAPER - FINAL REPORT")
+        report_lines.append("="*80)
+        report_lines.append(f"Generated: {total_end_time.strftime('%Y-%m-%d %H:%M:%S')}")
+        report_lines.append("")
+        
+        report_lines.append("⚙️  CONFIGURATION:")
+        report_lines.append(f"  Star range: {MIN_STARS:,} to {MAX_STARS:,}")
+        report_lines.append(f"  Minimum contributors: {MIN_CONTRIBUTORS}")
+        report_lines.append(f"  README character limit: {README_CHAR_LIMIT:,}")
+        report_lines.append(f"  Total tokens: {len(self.tokens)}")
+        report_lines.append(f"  Scraping workers: {self.max_workers}")
+        report_lines.append(f"  Parallel scan workers: {PARALLEL_SCAN_WORKERS}")
+        report_lines.append(f"  Tokens per worker: {self.tokens_per_worker}")
+        report_lines.append(f"  Output file: {OUTPUT_CSV}")
+        report_lines.append("")
+        
+        report_lines.append("📊 SCRAPING STATISTICS:")
+        report_lines.append(f"  Total repositories scanned: {total_repos:,}")
+        report_lines.append(f"  Total repositories scraped: {current_idx:,}")
+        report_lines.append(f"  Batches completed: {batch_num}")
+        report_lines.append(f"  Output file: {OUTPUT_CSV}")
+        report_lines.append("")
+        
+        report_lines.append("⏱️  TIME STATISTICS:")
+        report_lines.append(f"  Started: {total_start_time.strftime('%Y-%m-%d %H:%M:%S')}")
+        report_lines.append(f"  Ended: {total_end_time.strftime('%Y-%m-%d %H:%M:%S')}")
+        report_lines.append(f"  Total duration: {int(total_hours)} hours {int(total_minutes)} minutes")
+        report_lines.append("")
+        
+        report_lines.append("🔍 SCANNING PHASE:")
+        if self.scan_duration:
+            scan_mins = int(self.scan_duration.total_seconds() / 60)
+            scan_secs = int(self.scan_duration.total_seconds() % 60)
+            report_lines.append(f"  Scanning duration: {scan_mins} minutes {scan_secs} seconds")
+            report_lines.append(f"  Repositories found: {total_repos:,}")
+            report_lines.append(f"  Parallel scan workers used: {PARALLEL_SCAN_WORKERS}")
+            if cache_used:
+                report_lines.append(f"  Cache: ✅ USED (loaded from cache)")
+            else:
+                report_lines.append(f"  Cache: ❌ NOT USED (fresh scan, saved to cache)")
+        report_lines.append("")
+        
+        report_lines.append("🔄 BATCH DETAILS:")
+        for i, duration in enumerate(self.batch_durations, 1):
+            batch_mins = int(duration.total_seconds() / 60)
+            batch_secs = int(duration.total_seconds() % 60)
+            report_lines.append(f"  Batch {i}: {batch_mins} minutes {batch_secs} seconds")
+        if self.batch_durations:
+            avg_mins = int(avg_batch_duration / 60)
+            avg_secs = int(avg_batch_duration % 60)
+            report_lines.append(f"  Average batch duration: {avg_mins} minutes {avg_secs} seconds")
+        report_lines.append("")
+        
+        report_lines.append("😴 RATE LIMIT SLEEP CYCLES:")
+        report_lines.append(f"  Number of 1-hour sleeps: {self.sleep_cycles}")
+        report_lines.append(f"  Total sleep time: ~{self.sleep_cycles} hours")
+        report_lines.append(f"  Actual working time: ~{int(actual_work_time / 3600)} hours {int((actual_work_time % 3600) / 60)} minutes")
+        report_lines.append("")
+        
+        report_lines.append("⚡ PERFORMANCE METRICS:")
+        if total_repos > 0:
+            report_lines.append(f"  Average time per repo: {total_duration.total_seconds() / total_repos:.2f} seconds")
+            if actual_work_time > 0:
+                report_lines.append(f"  Effective speed: {current_idx / (actual_work_time / 3600):.1f} repos/hour")
+        report_lines.append(f"  Tokens used: {len(self.tokens)}")
+        report_lines.append(f"  Workers: {self.max_workers}")
+        report_lines.append(f"  API capacity: {len(self.tokens) * 5000:,} requests/hour")
+        report_lines.append(f"  Theoretical max speed: {len(self.tokens) * 5000 * 0.8:.0f} repos/hour (80% efficiency)")
+        report_lines.append("")
+        
+        report_lines.append("💡 INSIGHTS & ANALYSIS:")
+        if self.sleep_cycles > 0:
+            repos_per_cycle = total_repos / (self.sleep_cycles + 1)
+            report_lines.append(f"  Repositories per rate limit cycle: {repos_per_cycle:.1f}")
+            actual_repos_per_hour = current_idx / total_hours if total_hours > 0 else 0
+            report_lines.append(f"  Actual throughput: {actual_repos_per_hour:.1f} repos/hour (including sleep)")
+        
+        efficiency = (actual_work_time / total_duration.total_seconds() * 100) if total_duration.total_seconds() > 0 else 0
+        report_lines.append(f"  Time efficiency: {efficiency:.1f}% (working vs total time)")
+        
+        if self.batch_durations:
+            report_lines.append(f"  Batches required: {batch_num} (rate limit cycles)")
+        
+        # Scanning optimization insights
+        if cache_used:
+            report_lines.append(f"  Scanning: ⚡ CACHED (near-instant, saved ~10-20 minutes)")
+        elif PARALLEL_SCAN_WORKERS > 1:
+            report_lines.append(f"  Scanning: 🚀 PARALLEL ({PARALLEL_SCAN_WORKERS} tokens, ~{PARALLEL_SCAN_WORKERS}x faster)")
+        
+        # Token utilization
+        if len(self.tokens) > 0 and actual_work_time > 0:
+            theoretical_capacity = len(self.tokens) * 5000 * (actual_work_time / 3600)
+            actual_api_calls = current_idx * 3  # Approximate: search + contributors + readme
+            token_utilization = (actual_api_calls / theoretical_capacity * 100) if theoretical_capacity > 0 else 0
+            report_lines.append(f"  Token utilization: {token_utilization:.1f}% of total API capacity")
+        
+        # Performance recommendation
+        if self.sleep_cycles > 2:
+            report_lines.append(f"  💡 Recommendation: Consider adding more tokens to reduce sleep cycles")
+        elif efficiency < 50 and self.sleep_cycles > 0:
+            report_lines.append(f"  💡 Recommendation: Most time spent waiting, system is rate-limited")
+        elif PARALLEL_SCAN_WORKERS < min(4, len(self.tokens)) and not cache_used:
+            report_lines.append(f"  💡 Recommendation: Increase PARALLEL_SCAN_WORKERS to {min(4, len(self.tokens))} for faster scanning")
+        
+        report_lines.append("")
+        
+        report_lines.append("="*80)
+        report_lines.append("END OF REPORT")
+        report_lines.append("="*80)
+        
+        # Print report to console
         print(f"\n{'='*80}")
         print(f"✅ ALL SCRAPING COMPLETE!")
         print(f"{'='*80}\n")
-        print(f"📊 FINAL STATISTICS:")
-        print(f"  Total repos scraped: {total_repos:,}")
-        print(f"  Batches completed: {batch_num}")
-        print(f"  Output file: {OUTPUT_CSV}")
-        print(f"\n⏱️  TOTAL TIME:")
-        print(f"  Started: {total_start_time.strftime('%Y-%m-%d %H:%M:%S')}")
-        print(f"  Ended: {total_end_time.strftime('%Y-%m-%d %H:%M:%S')}")
-        print(f"  Duration: {int(total_hours)} hours {int(total_minutes)} minutes")
-        print(f"  Average: {total_duration.total_seconds() / total_repos:.2f} seconds per repo")
-        print(f"\n{'='*80}")
+        for line in report_lines:
+            print(line)
+        
+        # Save report to log file
+        log_dir = "logs"
+        os.makedirs(log_dir, exist_ok=True)
+        log_file = os.path.join(log_dir, "scraping_report.txt")
+        
+        try:
+            with open(log_file, 'a', encoding='utf-8') as f:
+                f.write("\n\n")  # Add spacing between reports
+                for line in report_lines:
+                    f.write(line + "\n")
+            print(f"\n📝 Report appended to: {log_file}")
+        except Exception as e:
+            print(f"\n⚠️  Warning: Could not write to log file: {e}")
+        
+        print(f"\n{'='*80}\n")
 
 
 def main():
@@ -618,8 +872,11 @@ def main():
     print(f"Token Configuration:")
     print(f"  Total tokens loaded: {len(github_tokens)}")
     print(f"  Workers: {MAX_WORKERS}")
+    print(f"  Parallel scan workers: {PARALLEL_SCAN_WORKERS}")
     print(f"  Tokens per worker: {len(github_tokens) // MAX_WORKERS}")
-    print(f"  Max API points/hour: {len(github_tokens) * 5000:,}\n")
+    print(f"  Max API points/hour: {len(github_tokens) * 5000:,}")
+    print(f"  Cache directory: cache/")
+    print(f"  Logs will be saved to: logs/scraping_report.txt\n")
     
     scraper = BatchReadmeScrapper(github_tokens, MAX_WORKERS)
     
