@@ -21,8 +21,8 @@ MAX_STARS = 200000  # Maximum number of stars
 MIN_CONTRIBUTORS = 0  # Minimum number of contributors (0 = no minimum, contributors = people who made commits)
 README_CHAR_LIMIT = 10000000  # Maximum number of characters to keep from README
 NUMBER_OF_TOKENS = 20  # Total number of GitHub tokens available in .env file
-MAX_WORKERS = 10  # Number of parallel threads (can be less than NUMBER_OF_TOKENS for fewer logical processors)
-PARALLEL_SCAN_WORKERS = 4  # Number of parallel workers for scanning phase (1-20, recommended: 4-8)
+MAX_WORKERS = 12  # Number of parallel threads (match this with your logical processors)
+PARALLEL_SCAN_WORKERS = 12  # Number of parallel workers for scanning phase (1-20, recommended: 4-8)
 
 # Load GitHub tokens from environment variables
 github_tokens = []
@@ -89,6 +89,56 @@ class BatchReadmeScrapper:
         # Cache management
         self.cache_dir = "cache"
         os.makedirs(self.cache_dir, exist_ok=True)
+    
+    def _get_cache_filename(self, min_stars, max_stars):
+        """Generate cache filename based on star range"""
+        return os.path.join(self.cache_dir, f"star_distribution_{min_stars}_{max_stars}.json")
+    
+    def _load_cache(self, min_stars, max_stars):
+        """Load cached star distribution if available"""
+        cache_file = self._get_cache_filename(min_stars, max_stars)
+        
+        if not os.path.exists(cache_file):
+            return None
+        
+        try:
+            with open(cache_file, 'r', encoding='utf-8') as f:
+                cache_data = json.load(f)
+            
+            # Check if cache is recent (less than 7 days old)
+            cache_age = datetime.now() - datetime.fromisoformat(cache_data['timestamp'])
+            if cache_age.days > 7:
+                print(f"⚠️  Cache is {cache_age.days} days old, will refresh")
+                return None
+            
+            print(f"✅ Loaded cache from {cache_file}")
+            print(f"   Cache age: {cache_age.days} days")
+            print(f"   Total repos in cache: {cache_data['total_repos']:,}")
+            return cache_data['repos']
+        except Exception as e:
+            print(f"⚠️  Failed to load cache: {e}")
+            return None
+    
+    def _save_cache(self, min_stars, max_stars, repos):
+        """Save star distribution to cache"""
+        cache_file = self._get_cache_filename(min_stars, max_stars)
+        
+        try:
+            cache_data = {
+                'timestamp': datetime.now().isoformat(),
+                'min_stars': min_stars,
+                'max_stars': max_stars,
+                'total_repos': len(repos),
+                'repos': repos
+            }
+            
+            with open(cache_file, 'w', encoding='utf-8') as f:
+                json.dump(cache_data, f, indent=2)
+            
+            print(f"💾 Saved cache to {cache_file}")
+            print(f"   Total repos cached: {len(repos):,}")
+        except Exception as e:
+            print(f"⚠️  Failed to save cache: {e}")
     
     def get_all_unique_repos(self, min_stars, max_stars):
         """
