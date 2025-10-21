@@ -7,7 +7,7 @@ from datetime import datetime
 # ============================
 INPUT_CSV = "github_readmes_batch.csv"  # Input CSV file to filter
 OUTPUT_CSV = "Cleaned_github_readmes.csv"  # Output CSV file (default: github_filtered_TIMESTAMP.csv)
-MIN_STARS = 500  # Minimum number of stars (set to 0 for no minimum)
+MIN_STARS = 1000  # Minimum number of stars (set to 0 for no minimum)
 MAX_STARS = 200000  # Maximum number of stars (set to None for no maximum)
 
 # Political emojis to search for
@@ -17,7 +17,7 @@ POLITICAL_EMOJIS = [
     "💙",       # Blue Heart - pro-Israel symbolism (with white heart)
     "🤍",       # White Heart - pro-Israel symbolism
     "✡️",       # Star of David - Jewish/Israeli symbol
-    "�🇸",      # Flag: Palestine - pro-Palestine support
+    "🇵🇸",      # Flag: Palestine - pro-Palestine support
     "❤️",       # Red Heart - Palestinian flag colors (with green, white, black)
     "💚",       # Green Heart - Palestinian flag / climate activism
     "🖤",       # Black Heart - Palestinian flag / BLM
@@ -25,7 +25,8 @@ POLITICAL_EMOJIS = [
     
     # War in Ukraine
     "🇺🇦",      # Flag: Ukraine - support for Ukraine
-    "💛",       # Yellow Heart - Ukraine flag colors (with blue)
+    "💙",       # Blue Heart (duplicate but valid) - Ukraine flag colors (with yellow)
+    "💛",       # Yellow Heart - Ukraine flag colors
     "🌻",       # Sunflower - Ukraine's national flower
     "🇷🇺",      # Flag: Russia - pro-Russia stance
     
@@ -38,25 +39,25 @@ POLITICAL_EMOJIS = [
     # Climate Change Activism
     "♻️",       # Recycling Symbol - climate activism
     "🌱",       # Seedling - environmental causes
-    "�",       # Globe Europe-Africa - climate activism
-    "�",       # Globe Americas - climate activism
-    "🌏",       # Globe Asia-Australia - climate activism
+    "🌍",       # Globe Europe-Africa
+    "🌎",       # Globe Americas
+    "🌏",       # Globe Asia-Australia
     "🔥",       # Fire - climate disaster/warming
     
     # Women's Rights & Feminist Activism
     "♀️",       # Female Sign - women's rights
-    "�",       # Women's Room - feminist activism
+    "🚺",       # Women's Room - feminist activism
     "💔",       # Broken Heart - #MeToo/harassment protest
     "😔",       # Pensive Face - #MeToo/solidarity
-    "�",       # Cooked Rice - China #MeToo (米兔 = mi tu)
+    "🍚",       # Cooked Rice - China #MeToo (米兔 = mi tu)
     "🐰",       # Rabbit Face - China #MeToo (米兔 = mi tu)
     
     # LGBTQ+ Activism
-    "�🌈",       # Rainbow - LGBTQ+ rights/Pride
     "🌈",       # Rainbow - LGBTQ+ rights/Pride
     "🏳️‍🌈",    # Rainbow Flag - LGBTQ+ Pride
     "🏳️‍⚧️",    # Transgender Flag - transgender rights
 ]
+
 # ============================
 
 
