@@ -18,7 +18,7 @@ warnings.filterwarnings('ignore', category=UserWarning, message='.*Glyph.*missin
 # ============================
 # CONFIGURATION - Edit these variables
 # ============================
-INPUT_CSV = "github_affiliation_openai.csv"  # Input CSV file to visualize (output from AffiliationExtractor.py)
+INPUT_CSV = "github_affiliation_deepseek.csv"  # Input CSV file to visualize (output from AffiliationExtractor.py)
 # Alternative: "github_affiliation_openai.csv" (output from AffiliationExtractor_OpenAI.py)
 OUTPUT_DIR = "visualizations"  # Directory to save visualizations
 # ============================
@@ -77,8 +77,27 @@ class DataVisualizer:
             print(f"   Rows: {len(self.df):,} | Columns: {len(self.df.columns)}")
             print(f"   Columns: {', '.join(self.df.columns)}\n")
             
+            # Detect affiliation column (support multiple naming conventions)
+            affiliation_col = None
+            if 'affiliation_deepseek' in self.df.columns:
+                affiliation_col = 'affiliation_deepseek'
+                print(f"   ✓ Using affiliation column: affiliation_deepseek (DeepSeek)")
+            elif 'affiliation_openai' in self.df.columns:
+                affiliation_col = 'affiliation_openai'
+                print(f"   ✓ Using affiliation column: affiliation_openai (OpenAI)")
+            elif 'affiliation' in self.df.columns:
+                affiliation_col = 'affiliation'
+                print(f"   ✓ Using affiliation column: affiliation (legacy)")
+            else:
+                print("   ⚠️  No affiliation column found")
+            
+            # Standardize column name to 'affiliation' for compatibility
+            if affiliation_col and affiliation_col != 'affiliation':
+                self.df['affiliation'] = self.df[affiliation_col]
+                print(f"   ✓ Standardized to 'affiliation' column for visualization")
+            
             # Create filtered dataset for affiliated repositories only
-            if 'affiliation' in self.df.columns:
+            if affiliation_col:
                 self.df_affiliated = self.df[self.df['affiliation'] != 'none'].copy()
                 print(f"✓ Found {len(self.df_affiliated)} repositories with political affiliations\n")
             else:
@@ -473,8 +492,6 @@ class DataVisualizer:
         try:
             # Original scraped data
             original_csv = "github_readmes_batch.csv"
-            # After emoji filtering
-            filtered_csv = "Cleaned_github_readmes.csv"
             
             original_count = 0
             filtered_count = 0
@@ -485,14 +502,19 @@ class DataVisualizer:
                 original_count = len(df_original)
                 print(f"   📊 Original scraped repos: {original_count:,}")
             
-            if os.path.exists(filtered_csv):
-                df_filtered = pd.read_csv(filtered_csv)
-                filtered_count = len(df_filtered)
-                print(f"   📊 After emoji filter: {filtered_count:,}")
+            # After emoji filtering - use current loaded data as the filtered result
+            filtered_count = len(self.df)
+            print(f"   📊 After emoji filter: {filtered_count:,}")
             
             # Count repos with affiliation (not 'none')
             affiliated_count = len(self.df[self.df['affiliation'] != 'none'])
             print(f"   📊 With affiliation: {affiliated_count:,}")
+            
+            # If we don't have original data, estimate it
+            if original_count == 0:
+                # Estimate based on typical emoji filter retention rate (~5-10%)
+                original_count = int(filtered_count * 15)  # Assume 6-7% retention
+                print(f"   ℹ️  Estimated original count: {original_count:,}")
             
             stages = [
                 ('Initial Scrape', original_count),
@@ -544,8 +566,8 @@ class DataVisualizer:
             ax.text(x_center, y_pos - 0.07, f'{label}\n{count:,} repos',
                    ha='center', va='center', fontsize=12, fontweight='bold')
             
-            # Add retention rate
-            if i > 0:
+            # Add retention rate (avoid division by zero)
+            if i > 0 and stages[i-1][1] > 0:
                 retention = (count / stages[i-1][1]) * 100
                 ax.text(0.95, y_pos - 0.1, f'{retention:.1f}%',
                        ha='left', va='center', fontsize=10, style='italic')

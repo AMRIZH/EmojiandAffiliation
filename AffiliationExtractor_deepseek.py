@@ -269,11 +269,103 @@ RULES:
             print(f"Output file: {output_file}")
             print("=" * 60)
             
+            # Save detailed report to log file
+            self.save_extraction_report(df, output_file)
+            
             return True
             
         except Exception as e:
             print(f"❌ Error saving file: {e}")
             return False
+    
+    def save_extraction_report(self, df, output_file):
+        """
+        Save detailed extraction report to logs/extraction_report_deepseek.txt
+        
+        Args:
+            df: DataFrame with affiliation_deepseek column
+            output_file: Output CSV filename
+        """
+        import os
+        
+        try:
+            # Create logs directory if it doesn't exist
+            os.makedirs('logs', exist_ok=True)
+            
+            log_file = 'logs/extraction_report_deepseek.txt'
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            
+            with open(log_file, 'a', encoding='utf-8') as f:
+                f.write(f"\n{'='*70}\n")
+                f.write(f"AFFILIATION EXTRACTION REPORT (DeepSeek) - {timestamp}\n")
+                f.write(f"{'='*70}\n")
+                f.write(f"Model: {self.model_id}\n")
+                f.write(f"Output: {output_file}\n")
+                f.write(f"Total repositories processed: {len(df):,}\n")
+                
+                # Overall affiliation statistics
+                f.write(f"\n{'='*70}\n")
+                f.write(f"AFFILIATION STATISTICS\n")
+                f.write(f"{'='*70}\n")
+                
+                affiliation_counts = df['affiliation_deepseek'].value_counts()
+                for affiliation, count in affiliation_counts.items():
+                    percentage = (count / len(df)) * 100
+                    f.write(f"{affiliation.upper():15s}: {count:4d} ({percentage:5.1f}%)\n")
+                
+                # Emoji-Affiliation correlation analysis
+                if 'found_emojis' in df.columns:
+                    f.write(f"\n{'='*70}\n")
+                    f.write(f"EMOJI-AFFILIATION CORRELATION ANALYSIS\n")
+                    f.write(f"{'='*70}\n")
+                    
+                    # Parse emojis and build correlation map
+                    emoji_affiliation_map = {}
+                    
+                    for idx, row in df.iterrows():
+                        emojis_str = row.get('found_emojis', '')
+                        affiliation = row.get('affiliation_deepseek', 'none')
+                        
+                        if pd.notna(emojis_str) and emojis_str:
+                            emojis = emojis_str.split()
+                            for emoji in emojis:
+                                if emoji not in emoji_affiliation_map:
+                                    emoji_affiliation_map[emoji] = {}
+                                
+                                if affiliation not in emoji_affiliation_map[emoji]:
+                                    emoji_affiliation_map[emoji][affiliation] = 0
+                                
+                                emoji_affiliation_map[emoji][affiliation] += 1
+                    
+                    # Sort emojis by total count (descending)
+                    emoji_totals = {emoji: sum(affiliations.values()) 
+                                   for emoji, affiliations in emoji_affiliation_map.items()}
+                    sorted_emojis = sorted(emoji_totals.items(), key=lambda x: x[1], reverse=True)
+                    
+                    # Write emoji-affiliation correlation
+                    for emoji, total_count in sorted_emojis:
+                        f.write(f"\nEmoji: {emoji}\n")
+                        f.write(f"Affiliations:\n")
+                        
+                        affiliations = emoji_affiliation_map[emoji]
+                        # Sort affiliations by count (descending)
+                        sorted_affiliations = sorted(affiliations.items(), key=lambda x: x[1], reverse=True)
+                        
+                        for affiliation, count in sorted_affiliations:
+                            percentage = (count / total_count) * 100
+                            f.write(f"  - {affiliation.capitalize():15s}: {count:4d} ({percentage:5.1f}%)\n")
+                        
+                        f.write(f"Total: {total_count}\n")
+                    
+                    f.write(f"\n{'='*70}\n")
+                    f.write(f"Total unique emojis analyzed: {len(emoji_affiliation_map)}\n")
+                
+                f.write(f"{'='*70}\n\n")
+            
+            print(f"📋 Detailed report saved to: {log_file}")
+            
+        except Exception as e:
+            print(f"⚠️  Warning: Could not save extraction report: {e}")
 
 
 def main():

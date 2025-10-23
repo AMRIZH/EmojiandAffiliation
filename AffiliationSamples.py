@@ -5,10 +5,11 @@ import os
 # ============================
 # CONFIGURATION - Edit these variables
 # ============================
-INPUT_CSV = "github_affiliation_openai.csv"  # Input CSV file with affiliations (output from AffiliationExtractor.py)
-# Alternative: "github_affiliation_openai.csv" (output from AffiliationExtractor_OpenAI.py)
+INPUT_CSV = "github_affiliation_combined.csv"  # Input CSV file with affiliations
+# Supported: github_affiliation_deepseek.csv, github_affiliation_openai.csv, github_affiliation_combined.csv
 OUTPUT_TXT = "affiliated_repositories.txt"  # Output text file
-EXCLUDE_NONE = True  # Set to True to exclude repos with 'none' affiliation
+OUTPUT_MD = "affiliated_repositories_simple.md"  # Output markdown file
+EXCLUDE_NONE = False  # Set to True to exclude repos with 'none' affiliation
 # ============================
 
 class AffiliationSamplePrinter:
@@ -41,6 +42,31 @@ class AffiliationSamplePrinter:
             self.df = pd.read_csv(self.input_csv)
             print(f"✅ Loaded {self.input_csv}")
             print(f"   Total rows: {len(self.df):,}")
+            
+            # Detect available affiliation columns
+            has_deepseek = 'affiliation_deepseek' in self.df.columns
+            has_openai = 'affiliation_openai' in self.df.columns
+            has_legacy = 'affiliation' in self.df.columns
+            
+            if has_deepseek:
+                print(f"   ✓ Found affiliation_deepseek column")
+            if has_openai:
+                print(f"   ✓ Found affiliation_openai column")
+            if has_legacy:
+                print(f"   ✓ Found affiliation column (legacy)")
+            
+            if not (has_deepseek or has_openai or has_legacy):
+                print(f"   ❌ No affiliation column found!")
+                print(f"   Available columns: {', '.join(self.df.columns)}")
+                return False
+            
+            # Create 'affiliation' column for filtering (use any available)
+            if has_deepseek:
+                self.df['affiliation'] = self.df['affiliation_deepseek']
+            elif has_openai:
+                self.df['affiliation'] = self.df['affiliation_openai']
+            elif has_legacy and 'affiliation' not in self.df.columns:
+                pass  # already exists
             
             if self.exclude_none:
                 original_count = len(self.df)
@@ -99,11 +125,26 @@ class AffiliationSamplePrinter:
                         name = row.get('repo_name', 'unknown')
                         stars = row.get('repo_stars', 0)
                         url = row.get('repo_url', '')
+                        found_emojis = row.get('found_emojis', '')
+                        contributors = row.get('contributor_count', 0)
                         
                         f.write(f"[{idx}] {owner}/{name}\n")
                         f.write(f"    Stars: {stars:,}\n")
+                        f.write(f"    Contributors: {contributors:,}\n")
                         f.write(f"    URL: {url}\n")
-                        f.write(f"    Affiliation: {affiliation.upper()}\n")
+                        if found_emojis:
+                            f.write(f"    Emojis: {found_emojis}\n")
+                        
+                        # Show all available affiliation columns
+                        if 'affiliation_deepseek' in row and pd.notna(row.get('affiliation_deepseek')):
+                            f.write(f"    Affiliation (DeepSeek): {row['affiliation_deepseek'].upper()}\n")
+                        if 'affiliation_openai' in row and pd.notna(row.get('affiliation_openai')):
+                            f.write(f"    Affiliation (OpenAI): {row['affiliation_openai'].upper()}\n")
+                        if 'affiliation' in row and pd.notna(row.get('affiliation')):
+                            # Only show legacy if no deepseek/openai columns exist
+                            if 'affiliation_deepseek' not in row and 'affiliation_openai' not in row:
+                                f.write(f"    Affiliation: {row['affiliation'].upper()}\n")
+                        
                         f.write("\n")
                 
                 # Write summary
@@ -141,7 +182,7 @@ class AffiliationSamplePrinter:
     
     def generate_simple_list(self, output_file=None):
         """
-        Generate a simple list format (one line per repo)
+        Generate a simple list format as markdown (one line per repo)
         
         Args:
             output_file: Optional different output filename
@@ -154,9 +195,9 @@ class AffiliationSamplePrinter:
             return False
         
         if output_file is None:
-            output_file = self.output_txt.replace('.txt', '_simple.txt')
+            output_file = OUTPUT_MD
         
-        print(f"\n📝 Generating simple list format...")
+        print(f"\n📝 Generating simple markdown list...")
         
         # Sort by affiliation and then by stars (descending)
         df_sorted = self.df.sort_values(['affiliation', 'repo_stars'], 
@@ -164,31 +205,74 @@ class AffiliationSamplePrinter:
         
         try:
             with open(output_file, 'w', encoding='utf-8') as f:
-                # Write header
-                f.write("# GitHub Repositories with Political Affiliation\n")
-                f.write(f"# Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-                f.write(f"# Total: {len(df_sorted):,} repositories\n")
-                f.write("#\n")
-                f.write("# Format: [AFFILIATION] Owner/Repo | Stars: N | URL\n")
-                f.write("#\n\n")
+                # Write markdown header
+                f.write("# GitHub Repositories with Political Affiliation\n\n")
+                f.write(f"**Generated:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}  \n")
+                f.write(f"**Total Repositories:** {len(df_sorted):,}\n\n")
+                f.write("---\n\n")
                 
-                # Write each repo on one line
-                for _, row in df_sorted.iterrows():
-                    owner = row.get('repo_owner', 'unknown')
-                    name = row.get('repo_name', 'unknown')
-                    stars = row.get('repo_stars', 0)
-                    url = row.get('repo_url', '')
-                    affiliation = row.get('affiliation', 'none')
+                # Group by affiliation and create sections
+                affiliations = sorted(df_sorted['affiliation'].unique())
+                
+                for affiliation in affiliations:
+                    aff_data = df_sorted[df_sorted['affiliation'] == affiliation]
                     
-                    f.write(f"[{affiliation.upper():10s}] {owner}/{name:50s} | Stars: {stars:>7,} | {url}\n")
+                    # Section header
+                    f.write(f"## {affiliation.upper()} ({len(aff_data):,} repositories)\n\n")
+                    
+                    # Table header
+                    f.write("| Repository | Stars | Contributors | Emojis | Affiliation |\n")
+                    f.write("|------------|-------|--------------|--------|-------------|\n")
+                    
+                    # Write each repo as table row
+                    for _, row in aff_data.iterrows():
+                        owner = row.get('repo_owner', 'unknown')
+                        name = row.get('repo_name', 'unknown')
+                        stars = row.get('repo_stars', 0)
+                        url = row.get('repo_url', '')
+                        found_emojis = row.get('found_emojis', '')
+                        contributors = row.get('contributor_count', 0)
+                        
+                        # Build affiliation string showing all available columns
+                        aff_parts = []
+                        if 'affiliation_deepseek' in row and pd.notna(row.get('affiliation_deepseek')):
+                            aff_parts.append(f"DS:{row['affiliation_deepseek'].upper()}")
+                        if 'affiliation_openai' in row and pd.notna(row.get('affiliation_openai')):
+                            aff_parts.append(f"OAI:{row['affiliation_openai'].upper()}")
+                        if not aff_parts and 'affiliation' in row and pd.notna(row.get('affiliation')):
+                            aff_parts.append(row['affiliation'].upper())
+                        
+                        affiliation_str = " / ".join(aff_parts) if aff_parts else "NONE"
+                        emoji_str = found_emojis if found_emojis else "-"
+                        
+                        # Format as markdown table row
+                        f.write(f"| [{owner}/{name}]({url}) | {stars:,} | {contributors:,} | {emoji_str} | {affiliation_str} |\n")
+                    
+                    f.write("\n")
+                
+                # Write summary section
+                f.write("---\n\n")
+                f.write("## Summary by Affiliation\n\n")
+                f.write("| Affiliation | Count | Percentage | Total Stars | Avg Stars |\n")
+                f.write("|-------------|-------|------------|-------------|----------|\n")
+                
+                for affiliation in affiliations:
+                    count = len(df_sorted[df_sorted['affiliation'] == affiliation])
+                    percentage = (count / len(df_sorted)) * 100
+                    total_stars = df_sorted[df_sorted['affiliation'] == affiliation]['repo_stars'].sum()
+                    avg_stars = df_sorted[df_sorted['affiliation'] == affiliation]['repo_stars'].mean()
+                    
+                    f.write(f"| {affiliation.upper()} | {count:,} | {percentage:.1f}% | {total_stars:,} | {avg_stars:,.0f} |\n")
+                
+                f.write("\n---\n")
             
-            print(f"✅ Simple list generated!")
+            print(f"✅ Markdown list generated!")
             print(f"📄 Output file: {output_file}")
             
             return True
             
         except Exception as e:
-            print(f"❌ Error generating simple list: {e}")
+            print(f"❌ Error generating markdown list: {e}")
             return False
     
     def run(self):
@@ -209,7 +293,7 @@ class AffiliationSamplePrinter:
         # Generate detailed report
         success1 = self.generate_report()
         
-        # Generate simple list
+        # Generate markdown list
         success2 = self.generate_simple_list()
         
         if success1 or success2:
@@ -229,6 +313,7 @@ def main():
     print("=" * 80)
     print(f"\nInput CSV: {INPUT_CSV}")
     print(f"Output TXT: {OUTPUT_TXT}")
+    print(f"Output MD: {OUTPUT_MD}")
     print(f"Exclude 'none': {EXCLUDE_NONE}")
     
     # Create printer instance

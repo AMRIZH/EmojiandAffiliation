@@ -16,13 +16,13 @@ load_dotenv()
 # CONFIGURATION - Edit these variables
 # ============================
 OUTPUT_CSV = "github_readmes_batch.csv"  # Main output file (will be appended to)
-MIN_STARS = 500  # Minimum number of stars
+MIN_STARS = 100  # Minimum number of stars
 MAX_STARS = 200000  # Maximum number of stars
 MIN_CONTRIBUTORS = 0  # Minimum number of contributors (0 = no minimum, contributors = people who made commits)
-README_CHAR_LIMIT = 10000000  # Maximum number of characters to keep from README
+README_CHAR_LIMIT = 1000000  # Maximum number of characters to keep from README
 NUMBER_OF_TOKENS = 20  # Total number of GitHub tokens available in .env file
 MAX_WORKERS = 12  # Number of parallel threads (match this with your logical processors)
-PARALLEL_SCAN_WORKERS = 12  # Number of parallel workers for scanning phase (1-20, recommended: 4-8)
+PARALLEL_SCAN_WORKERS = 20  # Number of parallel workers for scanning phase (1-20, recommended: 4-8)
 
 # Load GitHub tokens from environment variables
 github_tokens = []
@@ -33,6 +33,9 @@ for i in range(1, NUMBER_OF_TOKENS + 1):
 
 if not github_tokens:
     raise ValueError("No GitHub tokens found! Please set GITHUB_TOKEN_1, GITHUB_TOKEN_2, etc. in .env file")
+
+# Load Discord webhook URL
+DISCORD_WEBHOOK_URL = os.getenv('discord_webhook_url')
 # ============================
 
 class BatchReadmeScrapper:
@@ -89,6 +92,38 @@ class BatchReadmeScrapper:
         # Cache management
         self.cache_dir = "cache"
         os.makedirs(self.cache_dir, exist_ok=True)
+        
+        # Discord webhook URL
+        self.discord_webhook_url = DISCORD_WEBHOOK_URL
+    
+    def _send_discord_message(self, content=None, embed=None):
+        """Send a message to Discord via webhook"""
+        if not self.discord_webhook_url:
+            return False
+        
+        try:
+            payload = {}
+            
+            if content:
+                # Discord has a 2000 character limit for content
+                if len(content) > 2000:
+                    content = content[:1997] + "..."
+                payload["content"] = content
+            
+            if embed:
+                payload["embeds"] = [embed]
+            
+            response = requests.post(
+                self.discord_webhook_url,
+                json=payload,
+                timeout=10
+            )
+            
+            return response.status_code == 204
+        except Exception as e:
+            with self.print_lock:
+                print(f"⚠️  Failed to send Discord notification: {e}")
+            return False
     
     def _get_cache_filename(self, min_stars, max_stars):
         """Generate cache filename based on star range"""
@@ -163,23 +198,45 @@ class BatchReadmeScrapper:
             print(f"✅ Using cached data, skipping scan phase!\n")
             return cached_repos
         
-        print(f"❌ No cache found, starting fresh scan...\n")
+        print(f"❌ No exact cache found, checking for partial cache...")
+        
+        # Check if we can load a higher range cache (e.g., 500-200000) and scan only the lower range (100-500)
+        partial_cached_repos = None
+        scan_min = min_stars
+        scan_max = max_stars
+        
+        # Try to find cache for 500-200000 if our range includes it
+        if min_stars < 500 and max_stars >= 500:
+            print(f"   Checking for cache: 500-{max_stars}...")
+            partial_cached_repos = self._load_cache(500, max_stars)
+            if partial_cached_repos is not None:
+                print(f"✅ Found partial cache: 500-{max_stars:,} stars ({len(partial_cached_repos):,} repos)")
+                print(f"   Will only scan new range: {min_stars:,}-499 stars\n")
+                scan_min = min_stars
+                scan_max = 499
+            else:
+                print(f"   No partial cache found\n")
+        else:
+            print(f"   No applicable partial cache\n")
         
         scan_start_time = datetime.now()
         print(f"⏰ Scanning started at: {scan_start_time.strftime('%Y-%m-%d %H:%M:%S')}\n")
         
         # Split star range into chunks for parallel scanning
         num_parallel_scanners = min(PARALLEL_SCAN_WORKERS, len(self.all_headers))
-        star_range_total = max_stars - min_stars
+        star_range_total = scan_max - scan_min
         chunk_size = star_range_total // num_parallel_scanners
         
         scan_ranges = []
         for i in range(num_parallel_scanners):
-            chunk_min = min_stars + (i * chunk_size)
-            chunk_max = min_stars + ((i + 1) * chunk_size) - 1 if i < num_parallel_scanners - 1 else max_stars
+            chunk_min = scan_min + (i * chunk_size)
+            chunk_max = scan_min + ((i + 1) * chunk_size) - 1 if i < num_parallel_scanners - 1 else scan_max
             scan_ranges.append((chunk_min, chunk_max, i))
         
-        print(f"🚀 Parallel scanning with {num_parallel_scanners} tokens:")
+        if partial_cached_repos is not None:
+            print(f"🚀 Parallel scanning NEW range only ({scan_min:,}-{scan_max:,} stars) with {num_parallel_scanners} tokens:")
+        else:
+            print(f"🚀 Parallel scanning with {num_parallel_scanners} tokens:")
         for chunk_min, chunk_max, idx in scan_ranges:
             print(f"   Token {idx+1}: {chunk_min:,} to {chunk_max:,} stars")
         print()
@@ -213,11 +270,32 @@ class BatchReadmeScrapper:
         # Store scan duration for final report
         self.scan_duration = scan_duration
         
-        print(f"\n✅ Scan complete: Found {len(all_repos):,} total unique repositories")
+        print(f"\n✅ Scan complete: Found {len(all_repos):,} repositories in range {scan_min:,}-{scan_max:,}")
         print(f"⏱️  Scanning duration: {int(scan_minutes)} minutes {int(scan_duration.total_seconds() % 60)} seconds\n")
         
-        # Save to cache for future runs
-        print(f"💾 Saving scan results to cache...")
+        # Send scanning report to Discord
+        scan_embed = {
+            "title": "🔍 Repository Scanning Complete",
+            "color": 0x00FF00,  # Green
+            "fields": [
+                {"name": "Star Range", "value": f"{scan_min:,} - {scan_max:,}", "inline": True},
+                {"name": "Repositories Found", "value": f"{len(all_repos):,}", "inline": True},
+                {"name": "Duration", "value": f"{int(scan_minutes)}m {int(scan_duration.total_seconds() % 60)}s", "inline": True},
+                {"name": "Parallel Workers", "value": f"{num_parallel_scanners}", "inline": True},
+                {"name": "Cache Used", "value": "Yes" if partial_cached_repos else "No", "inline": True}
+            ],
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        self._send_discord_message(embed=scan_embed)
+        
+        # Merge with partial cache if available
+        if partial_cached_repos is not None:
+            print(f"🔗 Merging with cached data ({len(partial_cached_repos):,} repos from 500-{max_stars:,})...")
+            all_repos.extend(partial_cached_repos)
+            print(f"✅ Total combined: {len(all_repos):,} unique repositories\n")
+        
+        # Save combined results to cache for future runs
+        print(f"💾 Saving combined results to cache...")
         self._save_cache(min_stars, max_stars, all_repos)
         
         return all_repos
@@ -495,6 +573,11 @@ class BatchReadmeScrapper:
             description = repo.get("description", "") or ""
             topics = ", ".join(repo.get("topics", []))
             created_at = repo.get("created_at", "")  # Get repository creation date
+            updated_at = repo.get("updated_at", "")  # Get last update time
+            pushed_at = repo.get("pushed_at", "")  # Get last push time
+            forks = repo.get("forks_count", 0)  # Get number of forks
+            language = repo.get("language", "") or ""  # Get primary programming language
+            owner_type = repo["owner"].get("type", "")  # Get owner type (User or Organization)
             
             # Get an available token (not rate limited)
             headers, token_index = self._get_available_token(token_group)
@@ -529,8 +612,13 @@ class BatchReadmeScrapper:
                 "repo_url": repo_url,
                 "description": description,
                 "contributors": contributors_count,
+                "forks": forks,
+                "language": language,
+                "owner_type": owner_type,
                 "topics": topics,
                 "created_at": created_at,
+                "updated_at": updated_at,
+                "pushed_at": pushed_at,
                 "readme": readme_content or ""
             }
             repo_data_list.append(repo_data)
@@ -607,7 +695,8 @@ class BatchReadmeScrapper:
             return
         
         fieldnames = ["repo_owner", "repo_name", "repo_stars", "repo_url", 
-                     "description", "contributors", "topics", "created_at", "readme"]
+                     "description", "contributors", "forks", "language", "owner_type", 
+                     "topics", "created_at", "updated_at", "pushed_at", "readme"]
         
         mode = 'w' if is_first_batch else 'a'
         write_header = is_first_batch
@@ -896,6 +985,41 @@ class BatchReadmeScrapper:
         print(f"{'='*80}\n")
         for line in report_lines:
             print(line)
+        
+        # Send final report to Discord
+        total_time_str = f"{int(total_hours)}h {int(total_minutes)}m"
+        scan_time_str = f"{int(self.scan_duration.total_seconds() / 60)}m {int(self.scan_duration.total_seconds() % 60)}s" if self.scan_duration else "N/A"
+        cache_status = "✅ Used" if cache_used else "❌ Fresh scan"
+        
+        final_embed = {
+            "title": "🎉 GitHub Scraping Complete!",
+            "color": 0x0099FF,  # Blue
+            "description": f"Successfully scraped **{current_idx:,}** repositories",
+            "fields": [
+                {"name": "📊 Total Repos", "value": f"{total_repos:,}", "inline": True},
+                {"name": "✅ Scraped", "value": f"{current_idx:,}", "inline": True},
+                {"name": "🔄 Batches", "value": f"{batch_num}", "inline": True},
+                {"name": "⏱️ Total Time", "value": total_time_str, "inline": True},
+                {"name": "🔍 Scan Time", "value": scan_time_str, "inline": True},
+                {"name": "💾 Cache", "value": cache_status, "inline": True},
+                {"name": "😴 Sleep Cycles", "value": f"{self.sleep_cycles}", "inline": True},
+                {"name": "⚡ Workers", "value": f"{self.max_workers}", "inline": True},
+                {"name": "🔑 Tokens", "value": f"{len(self.tokens)}", "inline": True},
+                {"name": "📁 Output File", "value": f"`{OUTPUT_CSV}`", "inline": False}
+            ],
+            "footer": {"text": f"Star Range: {MIN_STARS:,} - {MAX_STARS:,}"},
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+        # Add performance insights
+        if actual_repos_per_hour := (current_idx / total_hours if total_hours > 0 else 0):
+            final_embed["fields"].append({
+                "name": "🚀 Throughput",
+                "value": f"{actual_repos_per_hour:.1f} repos/hour",
+                "inline": True
+            })
+        
+        self._send_discord_message(embed=final_embed)
         
         # Save report to log file
         log_dir = "logs"

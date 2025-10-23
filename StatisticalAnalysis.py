@@ -20,7 +20,7 @@ warnings.filterwarnings('ignore')
 # ============================
 # CONFIGURATION
 # ============================
-INPUT_CSV = "github_affiliation_openai.csv"
+INPUT_CSV = "github_affiliation_deepseek.csv"
 OUTPUT_DIR = "statistical_analysis"
 REPORT_FILE = "statistical_report.txt"
 # ============================
@@ -66,8 +66,28 @@ class StatisticalAnalyzer:
         # Handle created_at from ReadmeScrapper_Batch.py (no repo_ prefix)
         # No need to rename if already 'created_at'
         
+        # Detect affiliation column (support multiple naming conventions)
+        affiliation_col = None
+        if 'affiliation_deepseek' in self.df.columns:
+            affiliation_col = 'affiliation_deepseek'
+            print(f"✓ Using affiliation column: affiliation_deepseek (DeepSeek)")
+        elif 'affiliation_openai' in self.df.columns:
+            affiliation_col = 'affiliation_openai'
+            print(f"✓ Using affiliation column: affiliation_openai (OpenAI)")
+        elif 'affiliation' in self.df.columns:
+            affiliation_col = 'affiliation'
+            print(f"✓ Using affiliation column: affiliation (legacy)")
+        else:
+            print("⚠️  No affiliation column found (affiliation_deepseek, affiliation_openai, or affiliation)")
+            print("   Analysis will proceed without affiliation-based filtering")
+        
+        # Standardize column name to 'affiliation' for compatibility
+        if affiliation_col and affiliation_col != 'affiliation':
+            self.df['affiliation'] = self.df[affiliation_col]
+            print(f"   Standardized to 'affiliation' column for analysis")
+        
         # Create a filtered dataset excluding 'none' affiliation for focused analysis
-        if 'affiliation' in self.df.columns:
+        if affiliation_col:
             self.df_affiliated = self.df[self.df['affiliation'] != 'none'].copy()
             print(f"✓ Found {len(self.df_affiliated)} repositories with political affiliations")
         else:
@@ -79,12 +99,14 @@ class StatisticalAnalyzer:
         
         # Convert created_at to datetime if it exists
         if 'created_at' in self.df.columns:
-            self.df['created_at'] = pd.to_datetime(self.df['created_at'], errors='coerce')
+            self.df['created_at'] = pd.to_datetime(self.df['created_at'], errors='coerce', utc=True)
             self.df['year_created'] = self.df['created_at'].dt.year
             self.df['month_created'] = self.df['created_at'].dt.month
             
-            # Create repo age in years
-            self.df['repo_age_years'] = (datetime.now() - self.df['created_at']).dt.days / 365.25
+            # Create repo age in years (use timezone-aware datetime)
+            from datetime import timezone
+            now_utc = datetime.now(timezone.utc)
+            self.df['repo_age_years'] = (now_utc - self.df['created_at']).dt.days / 365.25
         
         # Create popularity score (log scale to handle skewness)
         if 'stars' in self.df.columns:

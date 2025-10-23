@@ -17,3 +17,15 @@ github_affiliation_deepseek.csv
 Cleaned_github_readmes_500stars.csv
 Cleaned_github_readmes_1000stars.csv
 Cleaned_github_affiliation.csv
+batch_input_affiliation.jsonl
+batch_input_affiliation_1.jsonl
+batch_input_affiliation_2.jsonl
+batch_input_affiliation_3.jsonl
+batch_input_affiliation_4.jsonl
+batch_input_affiliation_5.jsonl
+batch_input_affiliation_6.jsonl
+batch_input_affiliation_7.jsonl
+batch_input_affiliation_8.jsonl
+batch_input_affiliation_9.jsonl
+batch_input_affiliation_10.jsonl
+github_affiliation_combined.csv
