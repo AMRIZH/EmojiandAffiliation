@@ -376,15 +376,14 @@ class BatchReadmeScrapper:
             chunk_max = unique_breakpoints[i]
             chunk_min = unique_breakpoints[i + 1]
             
-            # Ensure no overlap with previous range
+            # Adjust chunk_max to avoid overlap with previous range
             if scan_ranges:
                 prev_chunk_min = scan_ranges[-1][0]
-                # Current chunk_max should be prev_chunk_min - 1
-                if chunk_max >= prev_chunk_min:
-                    chunk_max = prev_chunk_min - 1
+                # Current chunk_max should be exactly prev_chunk_min - 1 to avoid gaps
+                chunk_max = prev_chunk_min - 1
             
-            # Only add valid ranges
-            if chunk_max > chunk_min:
+            # Only add valid ranges (must have at least 1 star difference)
+            if chunk_max >= chunk_min:
                 scan_ranges.append((chunk_min, chunk_max, len(scan_ranges)))
         
         # Debug: print total coverage
