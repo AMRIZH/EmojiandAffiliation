@@ -17,7 +17,7 @@ load_dotenv()
 # ============================
 OUTPUT_CSV = "github_readmes_batch.csv"  # Main output file (will be appended to)
 MIN_STARS = 100  # Minimum number of stars
-MAX_STARS = 400000  # Maximum number of stars
+MAX_STARS = 300000  # Maximum number of stars
 MIN_CONTRIBUTORS = 0  # Minimum number of contributors (0 = no minimum, contributors = people who made commits)
 README_CHAR_LIMIT = 1000000  # Maximum number of characters to keep from README
 NUMBER_OF_TOKENS = 20  # Total number of GitHub tokens available in .env file
@@ -222,21 +222,23 @@ class BatchReadmeScrapper:
         scan_start_time = datetime.now()
         print(f"⏰ Scanning started at: {scan_start_time.strftime('%Y-%m-%d %H:%M:%S')}\n")
         
-        # Split star range into chunks using exponential distribution
-        # Higher stars = larger chunks (sparse), Lower stars = smaller chunks (dense)
+        # Split star range into chunks for parallel scanning
         num_parallel_scanners = min(PARALLEL_SCAN_WORKERS, len(self.all_headers))
+        star_range_total = scan_max - scan_min
+        chunk_size = star_range_total // num_parallel_scanners
         
-        # Generate exponential distribution of star ranges
-        scan_ranges = self._generate_exponential_scan_ranges(scan_min, scan_max, num_parallel_scanners)
+        scan_ranges = []
+        for i in range(num_parallel_scanners):
+            chunk_min = scan_min + (i * chunk_size)
+            chunk_max = scan_min + ((i + 1) * chunk_size) - 1 if i < num_parallel_scanners - 1 else scan_max
+            scan_ranges.append((chunk_min, chunk_max, i))
         
         if partial_cached_repos is not None:
             print(f"🚀 Parallel scanning NEW range only ({scan_min:,}-{scan_max:,} stars) with {num_parallel_scanners} tokens:")
         else:
             print(f"🚀 Parallel scanning with {num_parallel_scanners} tokens:")
-        print(f"   Strategy: Exponential distribution (large chunks for high stars, small chunks for low stars)\n")
         for chunk_min, chunk_max, idx in scan_ranges:
-            chunk_size = chunk_max - chunk_min + 1
-            print(f"   Token {idx+1}: {chunk_min:,} to {chunk_max:,} stars (range: {chunk_size:,})")
+            print(f"   Token {idx+1}: {chunk_min:,} to {chunk_max:,} stars")
         print()
         
         # Parallel scanning with ThreadPoolExecutor
@@ -317,83 +319,10 @@ class BatchReadmeScrapper:
             return 500    # Dense
         elif stars >= 1000:
             return 200    # Very dense
+        elif stars >= 100:
+            return 50     # Extremely dense
         else:
-            return 100    # Extremely dense
-    
-    def _generate_exponential_scan_ranges(self, min_stars, max_stars, num_workers):
-        """
-        Generate scan ranges using exponential distribution
-        Assigns larger ranges to high stars (sparse) and smaller ranges to low stars (dense)
-        
-        Strategy:
-        - Use exponential curve to distribute the star range
-        - High star ranges get exponentially larger chunks
-        - Low star ranges get exponentially smaller chunks
-        - Ensures balanced workload despite varying repository density
-        
-        Args:
-            min_stars: Minimum stars
-            max_stars: Maximum stars
-            num_workers: Number of parallel workers
-            
-        Returns:
-            List of tuples: [(chunk_min, chunk_max, worker_idx), ...]
-        """
-        import math
-        
-        # Use logarithmic scale for exponential distribution
-        # log_min and log_max represent the logarithmic boundaries
-        log_min = math.log10(max(min_stars, 1))  # Avoid log(0)
-        log_max = math.log10(max_stars)
-        log_range = log_max - log_min
-        
-        # Generate exponentially distributed breakpoints
-        breakpoints = set()  # Use set to avoid duplicates
-        for i in range(num_workers + 1):
-            # Calculate position on logarithmic scale (reversed, high stars first)
-            log_pos = log_max - (i * log_range / num_workers)
-            star_pos = int(10 ** log_pos)
-            breakpoints.add(max(min_stars, min(star_pos, max_stars)))
-        
-        # Convert to sorted list (descending order: high stars first)
-        breakpoints = sorted(breakpoints, reverse=True)
-        
-        # Ensure boundaries are exact
-        if breakpoints[0] != max_stars:
-            breakpoints.insert(0, max_stars)
-        if breakpoints[-1] != min_stars:
-            breakpoints.append(min_stars)
-        
-        # Remove any remaining duplicates
-        unique_breakpoints = []
-        for bp in breakpoints:
-            if not unique_breakpoints or bp != unique_breakpoints[-1]:
-                unique_breakpoints.append(bp)
-        
-        # Create non-overlapping ranges from breakpoints (working backwards from high to low)
-        scan_ranges = []
-        for i in range(len(unique_breakpoints) - 1):
-            chunk_max = unique_breakpoints[i]
-            chunk_min = unique_breakpoints[i + 1]
-            
-            # Adjust chunk_max to avoid overlap with previous range
-            if scan_ranges:
-                prev_chunk_min = scan_ranges[-1][0]
-                # Current chunk_max should be exactly prev_chunk_min - 1 to avoid gaps
-                chunk_max = prev_chunk_min - 1
-            
-            # Only add valid ranges (must have at least 1 star difference)
-            if chunk_max >= chunk_min:
-                scan_ranges.append((chunk_min, chunk_max, len(scan_ranges)))
-        
-        # Debug: print total coverage
-        if scan_ranges:
-            total_covered = sum(chunk_max - chunk_min + 1 for chunk_min, chunk_max, _ in scan_ranges)
-            expected_coverage = max_stars - min_stars + 1
-            with self.print_lock:
-                print(f"   📐 Coverage check: {total_covered:,} / {expected_coverage:,} stars ({total_covered/expected_coverage*100:.1f}%)")
-        
-        return scan_ranges
+            return 10     # Ultra dense (low star repos)
     
     def _scan_star_range(self, min_stars, max_stars, token_idx, global_min):
         """
@@ -417,69 +346,69 @@ class BatchReadmeScrapper:
             if repos:
                 # Check if we hit the 1,000 limit
                 if len(repos) >= 1000:
-                    # Don't rescan if we're already at minimum range (1 star)
-                    if range_size <= 1:
-                        with self.print_lock:
-                            print(f"   ⚠️  Hit 1,000 limit but already at minimum range (1 star), accepting {len(repos)} repos")
-                        all_repos.extend(repos)
-                        with self.print_lock:
-                            print(f"   ✅ Added {len(repos)} repos | Total: {len(all_repos):,}")
-                    else:
-                        with self.print_lock:
-                            print(f"   ⚠️  Hit 1,000 limit! Re-scanning with smaller ranges to avoid data loss...")
+                    with self.print_lock:
+                        print(f"   ⚠️  Hit 1,000 limit! Re-scanning with smaller ranges to avoid data loss...")
+                    
+                    # Re-scan this range with smaller chunks (more aggressive reduction)
+                    new_range_size = max(1, range_size // 5)  # More aggressive initial reduction
+                    rescan_max = current_max
+                    rescan_repos = []
+                    rescan_attempts = 0
+                    max_rescan_attempts = 5
+                    
+                    while rescan_max >= current_min and rescan_attempts < max_rescan_attempts:
+                        rescan_min = max(current_min, rescan_max - new_range_size)
                         
-                        # Re-scan this range with smaller chunks (more aggressive reduction)
-                        new_range_size = max(1, range_size // 5)  # More aggressive initial reduction
-                        rescan_max = current_max
-                        rescan_repos = []
-                        rescan_attempts = 0
-                        max_rescan_attempts = 5
+                        with self.print_lock:
+                            print(f"   🔄 Re-scanning {rescan_min:,} to {rescan_max:,} (range: {new_range_size})")
                         
-                        while rescan_max >= current_min and rescan_attempts < max_rescan_attempts:
-                            rescan_min = max(current_min, rescan_max - new_range_size)
-                            
-                            with self.print_lock:
-                                print(f"   🔄 Re-scanning {rescan_min:,} to {rescan_max:,} (range: {new_range_size})")
-                            
-                            chunk_repos = self._search_repo_metadata(rescan_min, rescan_max, self.all_headers[0])
-                            
-                            if chunk_repos:
-                                # Check if we're still hitting the limit
-                                if len(chunk_repos) >= 1000:
+                        chunk_repos = self._search_repo_metadata(rescan_min, rescan_max, self.all_headers[0])
+                        
+                        if chunk_repos:
+                            # Check if we're still hitting the limit
+                            if len(chunk_repos) >= 1000:
+                                # Check if we're already at minimum range
+                                if new_range_size <= 1:
                                     with self.print_lock:
-                                        print(f"      ⚠️  Still hit 1,000 limit! Reducing range dramatically...")
-                                    
-                                    # Highly aggressive reduction when still hitting limit
-                                    new_range_size = max(1, new_range_size // 4)
-                                    rescan_attempts += 1
-                                    
-                                    with self.print_lock:
-                                        print(f"      🔻 New range size: {new_range_size} (attempt {rescan_attempts}/{max_rescan_attempts})")
-                                    
-                                    # Don't add these repos, re-scan with smaller range
-                                    continue
-                                else:
-                                    # Successfully got less than 1,000 repos
+                                        print(f"      ⚠️  At minimum range (1), accepting {len(chunk_repos)} repos (may lose some data)")
                                     rescan_repos.extend(chunk_repos)
-                                    with self.print_lock:
-                                        print(f"      ✅ Found {len(chunk_repos)} repos | Re-scan total: {len(rescan_repos)}")
-                                    
-                                    # Move to next range
                                     rescan_max = rescan_min - 1
-                                    rescan_attempts = 0  # Reset attempts counter
+                                    continue
+                                
+                                with self.print_lock:
+                                    print(f"      ⚠️  Still hit 1,000 limit! Reducing range dramatically...")
+                                
+                                # Highly aggressive reduction when still hitting limit
+                                new_range_size = max(1, new_range_size // 4)
+                                rescan_attempts += 1
+                                
+                                with self.print_lock:
+                                    print(f"      🔻 New range size: {new_range_size} (attempt {rescan_attempts}/{max_rescan_attempts})")
+                                
+                                # Don't add these repos, re-scan with smaller range
+                                continue
                             else:
-                                # No repos found, move to next range
+                                # Successfully got less than 1,000 repos
+                                rescan_repos.extend(chunk_repos)
+                                with self.print_lock:
+                                    print(f"      ✅ Found {len(chunk_repos)} repos | Re-scan total: {len(rescan_repos)}")
+                                
+                                # Move to next range
                                 rescan_max = rescan_min - 1
-                            
-                            time.sleep(0.05)  # Reduced sleep time for faster scanning
+                                rescan_attempts = 0  # Reset attempts counter
+                        else:
+                            # No repos found, move to next range
+                            rescan_max = rescan_min - 1
                         
-                        # Use re-scanned repos instead
-                        all_repos.extend(rescan_repos)
-                        with self.print_lock:
-                            print(f"   ✅ Re-scan complete: {len(rescan_repos)} repos | Total: {len(all_repos):,}")
-                        
-                        # Adjust range size for next iteration (keep it small after hitting limit)
-                        range_size = new_range_size
+                        time.sleep(0.05)  # Reduced sleep time for faster scanning
+                    
+                    # Use re-scanned repos instead
+                    all_repos.extend(rescan_repos)
+                    with self.print_lock:
+                        print(f"   ✅ Re-scan complete: {len(rescan_repos)} repos | Total: {len(all_repos):,}")
+                    
+                    # Adjust range size for next iteration (keep it small after hitting limit)
+                    range_size = new_range_size
                 else:
                     # No limit hit - add repos normally
                     all_repos.extend(repos)
