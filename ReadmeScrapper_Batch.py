@@ -418,61 +418,69 @@ class BatchReadmeScrapper:
             if repos:
                 # Check if we hit the 1,000 limit
                 if len(repos) >= 1000:
-                    with self.print_lock:
-                        print(f"   ⚠️  Hit 1,000 limit! Re-scanning with smaller ranges to avoid data loss...")
-                    
-                    # Re-scan this range with smaller chunks (more aggressive reduction)
-                    new_range_size = max(1, range_size // 5)  # More aggressive initial reduction
-                    rescan_max = current_max
-                    rescan_repos = []
-                    rescan_attempts = 0
-                    max_rescan_attempts = 5
-                    
-                    while rescan_max >= current_min and rescan_attempts < max_rescan_attempts:
-                        rescan_min = max(current_min, rescan_max - new_range_size)
-                        
+                    # Don't rescan if we're already at minimum range (1 star)
+                    if range_size <= 1:
                         with self.print_lock:
-                            print(f"   🔄 Re-scanning {rescan_min:,} to {rescan_max:,} (range: {new_range_size})")
+                            print(f"   ⚠️  Hit 1,000 limit but already at minimum range (1 star), accepting {len(repos)} repos")
+                        all_repos.extend(repos)
+                        with self.print_lock:
+                            print(f"   ✅ Added {len(repos)} repos | Total: {len(all_repos):,}")
+                    else:
+                        with self.print_lock:
+                            print(f"   ⚠️  Hit 1,000 limit! Re-scanning with smaller ranges to avoid data loss...")
                         
-                        chunk_repos = self._search_repo_metadata(rescan_min, rescan_max, self.all_headers[0])
+                        # Re-scan this range with smaller chunks (more aggressive reduction)
+                        new_range_size = max(1, range_size // 5)  # More aggressive initial reduction
+                        rescan_max = current_max
+                        rescan_repos = []
+                        rescan_attempts = 0
+                        max_rescan_attempts = 5
                         
-                        if chunk_repos:
-                            # Check if we're still hitting the limit
-                            if len(chunk_repos) >= 1000:
-                                with self.print_lock:
-                                    print(f"      ⚠️  Still hit 1,000 limit! Reducing range dramatically...")
-                                
-                                # Highly aggressive reduction when still hitting limit
-                                new_range_size = max(1, new_range_size // 4)
-                                rescan_attempts += 1
-                                
-                                with self.print_lock:
-                                    print(f"      🔻 New range size: {new_range_size} (attempt {rescan_attempts}/{max_rescan_attempts})")
-                                
-                                # Don't add these repos, re-scan with smaller range
-                                continue
+                        while rescan_max >= current_min and rescan_attempts < max_rescan_attempts:
+                            rescan_min = max(current_min, rescan_max - new_range_size)
+                            
+                            with self.print_lock:
+                                print(f"   🔄 Re-scanning {rescan_min:,} to {rescan_max:,} (range: {new_range_size})")
+                            
+                            chunk_repos = self._search_repo_metadata(rescan_min, rescan_max, self.all_headers[0])
+                            
+                            if chunk_repos:
+                                # Check if we're still hitting the limit
+                                if len(chunk_repos) >= 1000:
+                                    with self.print_lock:
+                                        print(f"      ⚠️  Still hit 1,000 limit! Reducing range dramatically...")
+                                    
+                                    # Highly aggressive reduction when still hitting limit
+                                    new_range_size = max(1, new_range_size // 4)
+                                    rescan_attempts += 1
+                                    
+                                    with self.print_lock:
+                                        print(f"      🔻 New range size: {new_range_size} (attempt {rescan_attempts}/{max_rescan_attempts})")
+                                    
+                                    # Don't add these repos, re-scan with smaller range
+                                    continue
+                                else:
+                                    # Successfully got less than 1,000 repos
+                                    rescan_repos.extend(chunk_repos)
+                                    with self.print_lock:
+                                        print(f"      ✅ Found {len(chunk_repos)} repos | Re-scan total: {len(rescan_repos)}")
+                                    
+                                    # Move to next range
+                                    rescan_max = rescan_min - 1
+                                    rescan_attempts = 0  # Reset attempts counter
                             else:
-                                # Successfully got less than 1,000 repos
-                                rescan_repos.extend(chunk_repos)
-                                with self.print_lock:
-                                    print(f"      ✅ Found {len(chunk_repos)} repos | Re-scan total: {len(rescan_repos)}")
-                                
-                                # Move to next range
+                                # No repos found, move to next range
                                 rescan_max = rescan_min - 1
-                                rescan_attempts = 0  # Reset attempts counter
-                        else:
-                            # No repos found, move to next range
-                            rescan_max = rescan_min - 1
+                            
+                            time.sleep(0.05)  # Reduced sleep time for faster scanning
                         
-                        time.sleep(0.05)  # Reduced sleep time for faster scanning
-                    
-                    # Use re-scanned repos instead
-                    all_repos.extend(rescan_repos)
-                    with self.print_lock:
-                        print(f"   ✅ Re-scan complete: {len(rescan_repos)} repos | Total: {len(all_repos):,}")
-                    
-                    # Adjust range size for next iteration (keep it small after hitting limit)
-                    range_size = new_range_size
+                        # Use re-scanned repos instead
+                        all_repos.extend(rescan_repos)
+                        with self.print_lock:
+                            print(f"   ✅ Re-scan complete: {len(rescan_repos)} repos | Total: {len(all_repos):,}")
+                        
+                        # Adjust range size for next iteration (keep it small after hitting limit)
+                        range_size = new_range_size
                 else:
                     # No limit hit - add repos normally
                     all_repos.extend(repos)
