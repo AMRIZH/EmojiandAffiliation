@@ -17,7 +17,7 @@ load_dotenv()
 # ============================
 OUTPUT_CSV = "github_readmes_batch.csv"  # Main output file (will be appended to)
 MIN_STARS = 100  # Minimum number of stars
-MAX_STARS = 300000  # Maximum number of stars
+MAX_STARS = 400000  # Maximum number of stars
 MIN_CONTRIBUTORS = 0  # Minimum number of contributors (0 = no minimum, contributors = people who made commits)
 README_CHAR_LIMIT = 1000000  # Maximum number of characters to keep from README
 NUMBER_OF_TOKENS = 20  # Total number of GitHub tokens available in .env file
@@ -399,7 +399,7 @@ class BatchReadmeScrapper:
                         print(f"   ⚠️  Hit 1,000 limit! Re-scanning with smaller ranges to avoid data loss...")
                     
                     # Re-scan this range with smaller chunks (more aggressive reduction)
-                    new_range_size = max(2, range_size // 5)  # More aggressive initial reduction
+                    new_range_size = max(1, range_size // 5)  # More aggressive initial reduction
                     rescan_max = current_max
                     rescan_repos = []
                     rescan_attempts = 0
@@ -420,7 +420,7 @@ class BatchReadmeScrapper:
                                     print(f"      ⚠️  Still hit 1,000 limit! Reducing range dramatically...")
                                 
                                 # Highly aggressive reduction when still hitting limit
-                                new_range_size = max(2, new_range_size // 4)
+                                new_range_size = max(1, new_range_size // 4)
                                 rescan_attempts += 1
                                 
                                 with self.print_lock:
