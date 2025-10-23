@@ -348,28 +348,51 @@ class BatchReadmeScrapper:
         log_range = log_max - log_min
         
         # Generate exponentially distributed breakpoints
-        breakpoints = []
+        breakpoints = set()  # Use set to avoid duplicates
         for i in range(num_workers + 1):
             # Calculate position on logarithmic scale (reversed, high stars first)
             log_pos = log_max - (i * log_range / num_workers)
             star_pos = int(10 ** log_pos)
-            breakpoints.append(max(min_stars, min(star_pos, max_stars)))
+            breakpoints.add(max(min_stars, min(star_pos, max_stars)))
+        
+        # Convert to sorted list (descending order: high stars first)
+        breakpoints = sorted(breakpoints, reverse=True)
         
         # Ensure boundaries are exact
-        breakpoints[0] = max_stars
-        breakpoints[-1] = min_stars
+        if breakpoints[0] != max_stars:
+            breakpoints.insert(0, max_stars)
+        if breakpoints[-1] != min_stars:
+            breakpoints.append(min_stars)
         
-        # Create ranges from breakpoints (working backwards from high to low)
+        # Remove any remaining duplicates
+        unique_breakpoints = []
+        for bp in breakpoints:
+            if not unique_breakpoints or bp != unique_breakpoints[-1]:
+                unique_breakpoints.append(bp)
+        
+        # Create non-overlapping ranges from breakpoints (working backwards from high to low)
         scan_ranges = []
-        for i in range(num_workers):
-            chunk_max = breakpoints[i]
-            chunk_min = breakpoints[i + 1]
+        for i in range(len(unique_breakpoints) - 1):
+            chunk_max = unique_breakpoints[i]
+            chunk_min = unique_breakpoints[i + 1]
             
-            # Skip empty ranges
-            if chunk_max < chunk_min:
-                continue
-                
-            scan_ranges.append((chunk_min, chunk_max, i))
+            # Ensure no overlap with previous range
+            if scan_ranges:
+                prev_chunk_min = scan_ranges[-1][0]
+                # Current chunk_max should be prev_chunk_min - 1
+                if chunk_max >= prev_chunk_min:
+                    chunk_max = prev_chunk_min - 1
+            
+            # Only add valid ranges
+            if chunk_max > chunk_min:
+                scan_ranges.append((chunk_min, chunk_max, len(scan_ranges)))
+        
+        # Debug: print total coverage
+        if scan_ranges:
+            total_covered = sum(chunk_max - chunk_min + 1 for chunk_min, chunk_max, _ in scan_ranges)
+            expected_coverage = max_stars - min_stars + 1
+            with self.print_lock:
+                print(f"   📐 Coverage check: {total_covered:,} / {expected_coverage:,} stars ({total_covered/expected_coverage*100:.1f}%)")
         
         return scan_ranges
     
