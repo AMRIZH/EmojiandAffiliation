@@ -17,7 +17,7 @@ load_dotenv()
 # ============================
 OUTPUT_CSV = "github_readmes_batch.csv"  # Main output file (will be appended to)
 MIN_STARS = 100  # Minimum number of stars
-MAX_STARS = 200000  # Maximum number of stars
+MAX_STARS = 300000  # Maximum number of stars
 MIN_CONTRIBUTORS = 0  # Minimum number of contributors (0 = no minimum, contributors = people who made commits)
 README_CHAR_LIMIT = 1000000  # Maximum number of characters to keep from README
 NUMBER_OF_TOKENS = 20  # Total number of GitHub tokens available in .env file
@@ -222,23 +222,21 @@ class BatchReadmeScrapper:
         scan_start_time = datetime.now()
         print(f"⏰ Scanning started at: {scan_start_time.strftime('%Y-%m-%d %H:%M:%S')}\n")
         
-        # Split star range into chunks for parallel scanning
+        # Split star range into chunks using exponential distribution
+        # Higher stars = larger chunks (sparse), Lower stars = smaller chunks (dense)
         num_parallel_scanners = min(PARALLEL_SCAN_WORKERS, len(self.all_headers))
-        star_range_total = scan_max - scan_min
-        chunk_size = star_range_total // num_parallel_scanners
         
-        scan_ranges = []
-        for i in range(num_parallel_scanners):
-            chunk_min = scan_min + (i * chunk_size)
-            chunk_max = scan_min + ((i + 1) * chunk_size) - 1 if i < num_parallel_scanners - 1 else scan_max
-            scan_ranges.append((chunk_min, chunk_max, i))
+        # Generate exponential distribution of star ranges
+        scan_ranges = self._generate_exponential_scan_ranges(scan_min, scan_max, num_parallel_scanners)
         
         if partial_cached_repos is not None:
             print(f"🚀 Parallel scanning NEW range only ({scan_min:,}-{scan_max:,} stars) with {num_parallel_scanners} tokens:")
         else:
             print(f"🚀 Parallel scanning with {num_parallel_scanners} tokens:")
+        print(f"   Strategy: Exponential distribution (large chunks for high stars, small chunks for low stars)\n")
         for chunk_min, chunk_max, idx in scan_ranges:
-            print(f"   Token {idx+1}: {chunk_min:,} to {chunk_max:,} stars")
+            chunk_size = chunk_max - chunk_min + 1
+            print(f"   Token {idx+1}: {chunk_min:,} to {chunk_max:,} stars (range: {chunk_size:,})")
         print()
         
         # Parallel scanning with ThreadPoolExecutor
@@ -321,6 +319,59 @@ class BatchReadmeScrapper:
             return 200    # Very dense
         else:
             return 100    # Extremely dense
+    
+    def _generate_exponential_scan_ranges(self, min_stars, max_stars, num_workers):
+        """
+        Generate scan ranges using exponential distribution
+        Assigns larger ranges to high stars (sparse) and smaller ranges to low stars (dense)
+        
+        Strategy:
+        - Use exponential curve to distribute the star range
+        - High star ranges get exponentially larger chunks
+        - Low star ranges get exponentially smaller chunks
+        - Ensures balanced workload despite varying repository density
+        
+        Args:
+            min_stars: Minimum stars
+            max_stars: Maximum stars
+            num_workers: Number of parallel workers
+            
+        Returns:
+            List of tuples: [(chunk_min, chunk_max, worker_idx), ...]
+        """
+        import math
+        
+        # Use logarithmic scale for exponential distribution
+        # log_min and log_max represent the logarithmic boundaries
+        log_min = math.log10(max(min_stars, 1))  # Avoid log(0)
+        log_max = math.log10(max_stars)
+        log_range = log_max - log_min
+        
+        # Generate exponentially distributed breakpoints
+        breakpoints = []
+        for i in range(num_workers + 1):
+            # Calculate position on logarithmic scale (reversed, high stars first)
+            log_pos = log_max - (i * log_range / num_workers)
+            star_pos = int(10 ** log_pos)
+            breakpoints.append(max(min_stars, min(star_pos, max_stars)))
+        
+        # Ensure boundaries are exact
+        breakpoints[0] = max_stars
+        breakpoints[-1] = min_stars
+        
+        # Create ranges from breakpoints (working backwards from high to low)
+        scan_ranges = []
+        for i in range(num_workers):
+            chunk_max = breakpoints[i]
+            chunk_min = breakpoints[i + 1]
+            
+            # Skip empty ranges
+            if chunk_max < chunk_min:
+                continue
+                
+            scan_ranges.append((chunk_min, chunk_max, i))
+        
+        return scan_ranges
     
     def _scan_star_range(self, min_stars, max_stars, token_idx, global_min):
         """
