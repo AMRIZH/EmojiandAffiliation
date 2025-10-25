@@ -24,7 +24,7 @@ REFILTER = False  # Set to True to re-filter affiliation data (skips emoji detec
 # MAX_CONTRIBUTORS = None  # Adjust as needed
 # REFILTER = True  # Enable re-filter mode
 
-# Political emojis to search for
+# Political emojis to search for (Unicode format)
 POLITICAL_EMOJIS = [
     # Israel & Palestine Conflict
     "🇮🇱",      # Flag: Israel - pro-Israel support
@@ -71,6 +71,42 @@ POLITICAL_EMOJIS = [
     "🏳️‍🌈",    # Rainbow Flag - LGBTQ+ Pride
     "🏳️‍⚧️",    # Transgender Flag - transgender rights
 ]
+
+# Emoji to shortcode mapping (for markdown format detection)
+EMOJI_SHORTCODES = {
+    "🇮🇱": [":flag_il:", ":israel:"],
+    "💙": [":blue_heart:"],
+    "🤍": [":white_heart:"],
+    "✡️": [":star_of_david:"],
+    "🇵🇸": [":flag_ps:", ":palestinian_territories:", ":palestine:"],
+    "❤️": [":heart:", ":red_heart:"],
+    "💚": [":green_heart:"],
+    "🖤": [":black_heart:"],
+    "🍉": [":watermelon:"],
+    "🇺🇦": [":flag_ua:", ":ukraine:"],
+    "💛": [":yellow_heart:"],
+    "🌻": [":sunflower:"],
+    "🇷🇺": [":flag_ru:", ":ru:", ":russia:"],
+    "✊": [":fist:", ":raised_fist:"],
+    "✊🏾": [":fist_tone4:", ":raised_fist_tone4:"],
+    "✊🏿": [":fist_tone5:", ":raised_fist_tone5:"],
+    "🤎": [":brown_heart:"],
+    "♻️": [":recycle:"],
+    "🌱": [":seedling:"],
+    "🌍": [":earth_africa:"],
+    "🌎": [":earth_americas:"],
+    "🌏": [":earth_asia:"],
+    "🔥": [":fire:"],
+    "♀️": [":female_sign:"],
+    "🚺": [":womens:"],
+    "💔": [":broken_heart:"],
+    "😔": [":pensive:"],
+    "🍚": [":rice:"],
+    "🐰": [":rabbit:"],
+    "🌈": [":rainbow:"],
+    "🏳️‍🌈": [":rainbow_flag:", ":pride_flag:"],
+    "🏳️‍⚧️": [":transgender_flag:"],
+}
 
 # ============================
 
@@ -138,7 +174,7 @@ class CSVFilter:
     
     def contains_emoji(self, text):
         """
-        Check if text contains any of the political emojis
+        Check if text contains any of the political emojis (Unicode or markdown shortcode)
         
         Args:
             text: String to check for emojis
@@ -150,9 +186,20 @@ class CSVFilter:
             return False, []
         
         found_emojis = []
+        text_lower = text.lower()  # Convert to lowercase for case-insensitive shortcode matching
+        
         for emoji in self.emojis:
+            # Check for Unicode emoji
             if emoji in text:
                 found_emojis.append(emoji)
+            # Check for markdown shortcodes
+            elif emoji in EMOJI_SHORTCODES:
+                for shortcode in EMOJI_SHORTCODES[emoji]:
+                    if shortcode in text_lower:
+                        # Store the Unicode emoji (normalized format)
+                        if emoji not in found_emojis:
+                            found_emojis.append(emoji)
+                        break
         
         return len(found_emojis) > 0, found_emojis
     
