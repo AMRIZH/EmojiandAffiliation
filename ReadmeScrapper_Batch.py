@@ -588,6 +588,7 @@ class BatchReadmeScrapper:
             forks = repo.get("forks_count", 0)  # Get number of forks
             language = repo.get("language", "") or ""  # Get primary programming language
             owner_type = repo["owner"].get("type", "")  # Get owner type (User or Organization)
+            is_a_fork = repo.get("fork", False)  # Check if repository is a fork
             
             # Get an available token (not rate limited)
             headers, token_index = self._get_available_token(token_group)
@@ -625,6 +626,7 @@ class BatchReadmeScrapper:
                 "forks": forks,
                 "language": language,
                 "owner_type": owner_type,
+                "is_a_fork": is_a_fork,
                 "topics": topics,
                 "created_at": created_at,
                 "updated_at": updated_at,
@@ -705,7 +707,7 @@ class BatchReadmeScrapper:
             return
         
         fieldnames = ["repo_owner", "repo_name", "repo_stars", "repo_url", 
-                     "description", "contributors", "forks", "language", "owner_type", 
+                     "description", "contributors", "forks", "language", "owner_type", "is_a_fork", 
                      "topics", "created_at", "updated_at", "pushed_at", "readme"]
         
         mode = 'w' if is_first_batch else 'a'

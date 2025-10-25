@@ -13,13 +13,14 @@ Scrape 100K+ GitHub repositories → Filter by political emojis → Classify aff
 - 🤖 Dual LLM support (DeepSeek or OpenAI)
 - 📊 Comprehensive analysis (9 visualization charts + statistical reports)
 - 🎯 Adaptive range sizing (optimized for star density)
-- 🔄 Auto re-scanning to bypass GitHub's 1,000 result limit
+- 🔄 Auto re-scanning to bypass GitHub's 1,000 result limit (min 1 star)
+- 💬 Discord webhook notifications (scanning & final reports)
 
 ## 📊 Research Workflow
 
 ```mermaid
 graph TD
-    A[1. Scraping<br/>ReadmeScrapper_Batch.py] --> B[Raw Data<br/>github_readmes_batch.csv<br/>8 columns]
+    A[1. Scraping<br/>ReadmeScrapper_Batch.py] --> B[Raw Data<br/>github_readmes_batch.csv<br/>15 columns]
     B --> C[2. Filtering<br/>filtering.py]
     C --> D[Filtered Data<br/>Cleaned_github_readmes.csv<br/>+ found_emojis column]
     D --> E[3. Classification<br/>AffiliationExtractor_*.py]
@@ -92,6 +93,9 @@ GITHUB_TOKEN_2=github_pat_xxxxx
 # LLM API Key (choose one)
 deepseek_api_key=sk-xxxxx    # or
 openai_api_key=sk-xxxxx
+
+# Discord Webhook (optional)
+discord_webhook_url=https://discord.com/api/webhooks/...
 ```
 
 **Token Setup:** GitHub Settings → Developer Settings → Personal Access Tokens → Fine-grained tokens
@@ -111,10 +115,11 @@ python ReadmeScrapper_Batch.py
 - **Caching:** First run scans & caches, subsequent runs load instantly from cache
 - **Cache lifetime:** 7 days (auto-refresh if older)
 - **Optimization:** Smart initial range sizing based on star density
-- **Output:** `github_readmes_batch.csv` (9 columns: owner, name, stars, url, description, contributors, topics, created_at, readme)
+- **Output:** `github_readmes_batch.csv` (15 columns: owner, name, stars, url, description, contributors, forks, language, owner_type, is_a_fork, topics, created_at, updated_at, pushed_at, readme)
 - **Time:** ~1-2 hours for 100K repos (first run), <10 seconds (cached)
 - **Logging:** Detailed reports saved to `logs/scraping_report.txt`
-- Auto re-scans when hitting GitHub's 1,000 result limit with aggressive range reduction (min 2 stars)
+- **Discord Integration:** Sends scanning and final reports to Discord webhook
+- Auto re-scans when hitting GitHub's 1,000 result limit with aggressive range reduction (min 1 star)
 
 ### Step 2: Filter by Emojis
 
@@ -338,32 +343,38 @@ README_CHAR_LIMIT = 10000000  # 10M chars (virtually unlimited)
 ### Pipeline Data Flow
 
 ```
-github_readmes_batch.csv (8 columns)
+github_readmes_batch.csv (15 columns)
     ↓ filtering.py
-Cleaned_github_readmes.csv (9 columns = 8 + found_emojis)
+Cleaned_github_readmes.csv (16 columns = 15 + found_emojis)
     ↓ AffiliationExtractor_*.py
-github_affiliation*.csv (10 columns = 9 + affiliation)
+github_affiliation*.csv (17 columns = 16 + affiliation)
 ```
 
 ### 1. Scraper Output: `github_readmes_batch.csv`
 
 | Column | Type | Description | Example |
-|--------|------|-------------|---------|
+|--------|------|-------------|---------||
 | `repo_owner` | String | GitHub username/org | `microsoft` |
 | `repo_name` | String | Repository name | `vscode` |
 | `repo_stars` | Integer | Star count | `162000` |
 | `repo_url` | String | Full GitHub URL | `https://github.com/microsoft/vscode` |
 | `description` | String | Repo description | `Visual Studio Code` |
 | `contributors` | Integer | Contributor count | `428` |
+| `forks` | Integer | Fork count | `28500` |
+| `language` | String | Primary language | `TypeScript` |
+| `owner_type` | String | User or Organization | `Organization` |
+| `is_a_fork` | Boolean | Is this repo a fork? | `False` |
 | `topics` | String | Comma-separated | `editor, electron, typescript` |
 | `created_at` | String | Repository creation date (ISO 8601) | `2015-09-03T19:23:00Z` |
-| `readme` | String | README content (10M char limit) | `# Visual Studio Code\n\n...` |
+| `updated_at` | String | Last metadata update (ISO 8601) | `2024-10-20T15:30:00Z` |
+| `pushed_at` | String | Last code push (ISO 8601) | `2024-10-25T08:45:00Z` |
+| `readme` | String | README content (1M char limit) | `# Visual Studio Code\n\n...` |
 
 **File Size**: ~500 MB for 100K repos (depending on README length)
 
 ### 2. Filtered Output: `Cleaned_github_readmes.csv`
 
-Same as above **PLUS**:
+Same as above (15 columns) **PLUS**:
 
 | Column | Type | Description | Example |
 |--------|------|-------------|---------|
@@ -395,7 +406,11 @@ Same as filtered **PLUS**:
 - `description`: Empty string if null
 - `topics`: Empty string if no topics
 - `readme`: Empty string if not found
-- `collaborators`: 0 if fetch failed
+- `contributors`: 0 if fetch failed
+- `forks`: 0 if not available
+- `language`: Empty string if null
+- `owner_type`: Empty string if not available
+- `is_a_fork`: False if not available
 - `found_emojis`: Empty string if no matches
 - `affiliation`: Defaults to "none" on error
 
@@ -404,9 +419,12 @@ Same as filtered **PLUS**:
 - `repo_name`: ~100 chars (GitHub limit)
 - `description`: ~350 chars (GitHub limit)
 - `topics`: ~500 chars (varies)
-- `readme`: 30,000 chars (configurable)
+- `readme`: 1,000,000 chars (configurable)
 - `found_emojis`: ~200 chars (depends on matches)
 - `affiliation`: 15 chars max
+- `language`: ~50 chars
+- `owner_type`: ~20 chars (User/Organization)
+- `is_a_fork`: 5 chars (True/False)
 
 **CSV Encoding**: UTF-8 with BOM for Windows compatibility
 
