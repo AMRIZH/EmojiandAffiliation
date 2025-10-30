@@ -13,8 +13,8 @@ load_dotenv()
 # ============================
 # CONFIGURATION - Edit these variables
 # ============================
-INPUT_CSV = "Cleaned_github_readmes_500stars.csv"  # Input CSV file to process (output from filtering.py)
-OUTPUT_CSV = "github_affiliation_deepseek.csv"  # Output CSV file with affiliation
+INPUT_CSV = r"datasets/filtered_github_1000_200000.csv"  # Input CSV file to process (output from filtering.py)
+OUTPUT_CSV = r"datasets/affiliated_deepseek_1000_200000.csv"  # Output CSV file with affiliation
 DEEPSEEK_API_KEY = os.getenv('deepseek_api_key')  # DeepSeek API key from .env
 MODEL_ID = "deepseek-chat"  # DeepSeek model ID
 MAX_RETRIES = 3  # Maximum number of retries for failed requests
@@ -23,26 +23,18 @@ MAX_WORKERS = 12  # Number of parallel workers for multithreading
 
 class AffiliationExtractor:
     # Cached system prompt - defined once at class level to enable prompt caching
-    SYSTEM_PROMPT = """You are a classification AI. Your ONLY task is to respond with EXACTLY ONE WORD.
+    SYSTEM_PROMPT = """You are a classification AI. Output one lowercase word only.
 
-Analyze the README and description content to classify the repository's affiliation/activism:
+Classes:
+israel, palestine, blm, ukraine, climate, feminism, lgbtq, democrats, republican, none
 
-- israel (if mentions: Israel, Israeli support, Israeli tech, pro-Israel, Stand with Israel)
-- palestine (if mentions: Palestine, Gaza, Palestinian support, Free Palestine, pro-Palestine)
-- blm (if mentions: Black Lives Matter, BLM, racial justice, anti-racism)
-- ukraine (if mentions: Ukraine, Ukrainian support, Stand with Ukraine, pro-Ukraine)
-- climate (if mentions: Climate change, environmental activism, sustainability, climate action)
-- feminism (if mentions: Women's rights, feminism, gender equality, women empowerment)
-- lgbtq (if mentions: LGBTQ, LGBT, gay rights, pride, queer, transgender)
-- none (if no clear political/social activism affiliation found or neutral content)
+Rules:
+- Read README + description.
+- Reply only one word, no punctuation or explanation.
+- Classify only if clear affiliation or activism.
 
-RULES:
-1. Respond with EXACTLY ONE WORD: israel, palestine, blm, ukraine, climate, feminism, lgbtq, or none
-2. Use lowercase only
-3. No punctuation, no explanation, no additional text
-4. Only classify if there is CLEAR evidence in the README or description
-5. If unclear or neutral, respond: none
-6. Choose the MOST DOMINANT affiliation if multiple are present"""
+If multiple → choose dominant.
+If unclear or neutral → none"""
     
     def __init__(self, api_key, model_id):
         """
@@ -70,7 +62,7 @@ RULES:
             max_retries: Maximum number of retries
             
         Returns:
-            Affiliation string: 'palestine', 'israel', 'russia', 'ukraine', or 'none'
+            Affiliation string: 'israel', 'palestine', 'blm', 'ukraine', 'climate', 'feminism', 'lgbtq', 'democrats', 'republican', or 'none'
         """
         if not readme_text or pd.isna(readme_text) or readme_text.strip() == "":
             return "none"
@@ -118,7 +110,7 @@ RULES:
                     affiliation = affiliation.lower().strip().replace('.', '').replace('!', '')
                     
                     # Extract valid affiliation
-                    valid_affiliations = ['israel', 'palestine', 'blm', 'ukraine', 'climate', 'feminism', 'lgbtq', 'none']
+                    valid_affiliations = ['israel', 'palestine', 'blm', 'ukraine', 'climate', 'feminism', 'lgbtq', 'democrats', 'republican', 'none']
                     for valid in valid_affiliations:
                         if valid in affiliation:
                             return valid

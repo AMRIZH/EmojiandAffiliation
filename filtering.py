@@ -5,12 +5,13 @@ from datetime import datetime
 # ============================
 # CONFIGURATION - Edit these variables
 # ============================
-INPUT_CSV = "github_readmes_batch.csv"  # Input CSV file to filter
-OUTPUT_CSV = "Cleaned_github_readmes.csv"  # Output CSV file (default: github_filtered_TIMESTAMP.csv)
+INPUT_CSV = "github_readmes_100_300000.csv"  # Input CSV file to filter
+OUTPUT_CSV = "filtered_github_1000_200000.csv"  # Output CSV file (default: github_filtered_TIMESTAMP.csv)
 MIN_STARS = 1000  # Minimum number of stars (set to 0 for no minimum)
 MAX_STARS = 200000  # Maximum number of stars (set to None for no maximum)
 MIN_CONTRIBUTORS = 0  # Minimum number of contributors (set to 0 for no minimum)
 MAX_CONTRIBUTORS = None  # Maximum number of contributors (set to None for no maximum)
+INCLUDE_FORK = False  # Set to False to exclude forked repositories (only include original repos)
 REFILTER = False  # Set to True to re-filter affiliation data (skips emoji detection, uses existing 'found_emojis' column)
 
 # ============================
@@ -31,25 +32,27 @@ POLITICAL_EMOJIS = [
     "💙",       # Blue Heart - pro-Israel symbolism (with white heart)
     "🤍",       # White Heart - pro-Israel symbolism
     "✡️",       # Star of David - Jewish/Israeli symbol
+    "🎗",       # Reminder Ribbon - used for hostages awareness (explicit in article)
     "🇵🇸",      # Flag: Palestine - pro-Palestine support
     "❤️",       # Red Heart - Palestinian flag colors (with green, white, black)
     "💚",       # Green Heart - Palestinian flag / climate activism
     "🖤",       # Black Heart - Palestinian flag / BLM
     "🍉",       # Watermelon - symbolic Palestine reference
-    
+
     # War in Ukraine
     "🇺🇦",      # Flag: Ukraine - support for Ukraine
     "💙",       # Blue Heart (duplicate but valid) - Ukraine flag colors (with yellow)
     "💛",       # Yellow Heart - Ukraine flag colors
     "🌻",       # Sunflower - Ukraine's national flower
     "🇷🇺",      # Flag: Russia - pro-Russia stance
-    
+
     # Black Lives Matter
     "✊",       # Raised Fist - BLM solidarity/resistance
-    "✊🏾",      # Raised Fist: Medium-Dark Skin Tone - BLM
-    "✊🏿",      # Raised Fist: Dark Skin Tone - BLM
+    "✊🏾",     # Raised Fist: Medium-Dark Skin Tone - BLM
+    "✊🏿",     # Raised Fist: Dark Skin Tone - BLM
+    "🖤",       # Black Heart - BLM
     "🤎",       # Brown Heart - BLM/Black identity
-    
+
     # Climate Change Activism
     "♻️",       # Recycling Symbol - climate activism
     "🌱",       # Seedling - environmental causes
@@ -57,7 +60,7 @@ POLITICAL_EMOJIS = [
     "🌎",       # Globe Americas
     "🌏",       # Globe Asia-Australia
     "🔥",       # Fire - climate disaster/warming
-    
+
     # Women's Rights & Feminist Activism
     "♀️",       # Female Sign - women's rights
     "🚺",       # Women's Room - feminist activism
@@ -65,54 +68,78 @@ POLITICAL_EMOJIS = [
     "😔",       # Pensive Face - #MeToo/solidarity
     "🍚",       # Cooked Rice - China #MeToo (米兔 = mi tu)
     "🐰",       # Rabbit Face - China #MeToo (米兔 = mi tu)
-    
+
     # LGBTQ+ Activism
     "🌈",       # Rainbow - LGBTQ+ rights/Pride
     "🏳️‍🌈",    # Rainbow Flag - LGBTQ+ Pride
     "🏳️‍⚧️",    # Transgender Flag - transgender rights
+
+    # 2024 United States Election
+    "🇺🇸", # US fag
+    "🗳️", # ballot
+    "🦅", # Eagle - US patriotic / presidential symbolism
+    "🐘", # elephants (democrat party)
 ]
 
 # Emoji to shortcode mapping (for markdown format detection)
 EMOJI_SHORTCODES = {
+    # Israel & Palestine Conflict
     "🇮🇱": [":flag_il:", ":israel:"],
     "💙": [":blue_heart:"],
     "🤍": [":white_heart:"],
     "✡️": [":star_of_david:"],
+    "🎗": [":reminder_ribbon:"],
     "🇵🇸": [":flag_ps:", ":palestinian_territories:", ":palestine:"],
     "❤️": [":heart:", ":red_heart:"],
     "💚": [":green_heart:"],
     "🖤": [":black_heart:"],
     "🍉": [":watermelon:"],
+
+    # War in Ukraine
     "🇺🇦": [":flag_ua:", ":ukraine:"],
     "💛": [":yellow_heart:"],
     "🌻": [":sunflower:"],
     "🇷🇺": [":flag_ru:", ":ru:", ":russia:"],
+
+    # Black Lives Matter
     "✊": [":fist:", ":raised_fist:"],
     "✊🏾": [":fist_tone4:", ":raised_fist_tone4:"],
     "✊🏿": [":fist_tone5:", ":raised_fist_tone5:"],
     "🤎": [":brown_heart:"],
+
+    # Climate Change Activism
     "♻️": [":recycle:"],
     "🌱": [":seedling:"],
     "🌍": [":earth_africa:"],
     "🌎": [":earth_americas:"],
     "🌏": [":earth_asia:"],
     "🔥": [":fire:"],
+
+    # Women's Rights & Feminist Activism
     "♀️": [":female_sign:"],
     "🚺": [":womens:"],
     "💔": [":broken_heart:"],
     "😔": [":pensive:"],
     "🍚": [":rice:"],
     "🐰": [":rabbit:"],
+
+    # LGBTQ+ Activism
     "🌈": [":rainbow:"],
     "🏳️‍🌈": [":rainbow_flag:", ":pride_flag:"],
     "🏳️‍⚧️": [":transgender_flag:"],
+
+    # 2024 United States Election
+    "🇺🇸": [":flag_us:", ":us:", ":usa:"],
+    "🗳️": [":ballot_box_with_ballot:", ":ballot_box:"],
+    "🦅": [":eagle:"],
+    "🐘": [":elephant:"],
 }
 
 # ============================
 
 
 class CSVFilter:
-    def __init__(self, input_csv, output_csv=None, emojis=None, min_stars=None, max_stars=None, min_contributors=None, max_contributors=None, refilter=False):
+    def __init__(self, input_csv, output_csv=None, emojis=None, min_stars=None, max_stars=None, min_contributors=None, max_contributors=None, include_fork=True, refilter=False):
         """
         Initialize the CSV Filter
         
@@ -124,6 +151,7 @@ class CSVFilter:
             max_stars: Maximum star count (optional, filters repos above this)
             min_contributors: Minimum contributor count (optional, filters repos below this)
             max_contributors: Maximum contributor count (optional, filters repos above this)
+            include_fork: If False, exclude forked repositories (optional, default True)
             refilter: If True, skip emoji detection and use existing 'found_emojis' column (for re-filtering affiliation data)
         """
         self.input_csv = input_csv
@@ -139,6 +167,7 @@ class CSVFilter:
         self.max_stars = max_stars
         self.min_contributors = min_contributors if min_contributors is not None else 0
         self.max_contributors = max_contributors
+        self.include_fork = include_fork
         self.refilter = refilter
         self.df = None
         self.filtered_df = None
@@ -517,15 +546,24 @@ class CSVFilter:
             
             repo_contributors = row.get('contributors', row.get('collaborators', 0))
             
+            # Star filtering
             if repo_stars < self.min_stars:
                 continue
             if self.max_stars is not None and repo_stars > self.max_stars:
                 continue
             
+            # Contributor filtering
             if repo_contributors < self.min_contributors:
                 continue
             if self.max_contributors is not None and repo_contributors > self.max_contributors:
                 continue
+            
+            # Fork filtering
+            if not self.include_fork:
+                is_fork = row.get('is_a_fork', False)
+                # Skip if it's a fork and we're excluding forks
+                if is_fork:
+                    continue
             
             if self.refilter:
                 existing_emojis = row.get('found_emojis', '')
@@ -605,11 +643,12 @@ def main():
     print(f"  Star range: {MIN_STARS:,} to {MAX_STARS:,}" if MAX_STARS else f"  Minimum stars: {MIN_STARS:,}")
     if MIN_CONTRIBUTORS > 0 or MAX_CONTRIBUTORS is not None:
         print(f"  Contributor range: {MIN_CONTRIBUTORS:,} to {MAX_CONTRIBUTORS:,}" if MAX_CONTRIBUTORS else f"  Minimum contributors: {MIN_CONTRIBUTORS:,}")
+    print(f"  Include forks: {'Yes' if INCLUDE_FORK else 'No (original repos only)'}")
     if not REFILTER:
         print(f"  Number of emojis to search: {len(POLITICAL_EMOJIS)}")
     
     # Create filter instance
-    csv_filter = CSVFilter(INPUT_CSV, OUTPUT_CSV, POLITICAL_EMOJIS, MIN_STARS, MAX_STARS, MIN_CONTRIBUTORS, MAX_CONTRIBUTORS, REFILTER)
+    csv_filter = CSVFilter(INPUT_CSV, OUTPUT_CSV, POLITICAL_EMOJIS, MIN_STARS, MAX_STARS, MIN_CONTRIBUTORS, MAX_CONTRIBUTORS, INCLUDE_FORK, REFILTER)
     
     # Run filtering
     success = csv_filter.run()

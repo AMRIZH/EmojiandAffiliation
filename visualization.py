@@ -18,7 +18,7 @@ warnings.filterwarnings('ignore', category=UserWarning, message='.*Glyph.*missin
 # ============================
 # CONFIGURATION - Edit these variables
 # ============================
-INPUT_CSV = "github_affiliation_deepseek.csv"  # Input CSV file to visualize (output from AffiliationExtractor.py)
+INPUT_CSV = r"datasets/affiliated_deepseek_1000_200000.csv"  # Input CSV file to visualize (output from AffiliationExtractor.py)
 # Alternative: "github_affiliation_openai.csv" (output from AffiliationExtractor_OpenAI.py)
 OUTPUT_DIR = "visualizations"  # Directory to save visualizations
 # ============================

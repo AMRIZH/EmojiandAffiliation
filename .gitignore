@@ -29,3 +29,5 @@ batch_input_affiliation_8.jsonl
 batch_input_affiliation_9.jsonl
 batch_input_affiliation_10.jsonl
 github_affiliation_combined.csv
+datasets/
+manual_annotation_progress.txt

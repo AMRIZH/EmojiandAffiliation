@@ -5,10 +5,10 @@ import os
 # ============================
 # CONFIGURATION - Edit these variables
 # ============================
-INPUT_CSV = "github_affiliation_combined.csv"  # Input CSV file with affiliations
+INPUT_CSV = r"datasets/affiliated_deepseek_1000_200000.csv"  # Input CSV file with affiliations
 # Supported: github_affiliation_deepseek.csv, github_affiliation_openai.csv, github_affiliation_combined.csv
-OUTPUT_TXT = "affiliated_repositories.txt"  # Output text file
-OUTPUT_MD = "affiliated_repositories_simple.md"  # Output markdown file
+OUTPUT_TXT = r"datasets/affiliated_repositories.txt"  # Output text file
+OUTPUT_MD = r"datasets/affiliated_repositories_simple.md"  # Output markdown file
 EXCLUDE_NONE = False  # Set to True to exclude repos with 'none' affiliation
 # ============================
 
