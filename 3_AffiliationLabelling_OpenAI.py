@@ -13,56 +13,168 @@ load_dotenv()
 # ============================
 # CONFIGURATION - Edit these variables
 # ============================
-INPUT_CSV = r"datasets/filtered_github_1000_200000.csv"  # Input CSV file to process (output from filtering.py)
-OUTPUT_CSV = r"datasets/affiliated_deepseek_1000_200000.csv"  # Output CSV file with affiliation
-DEEPSEEK_API_KEY = os.getenv('deepseek_api_key')  # DeepSeek API key from .env
-MODEL_ID = "deepseek-chat"  # DeepSeek model ID
+INPUT_CSV = r"datasets/affiliated_deepseek_1000_200000.csv"  # Input CSV file to process (output from filtering.py)
+OUTPUT_CSV = r"datasets/affiliated_combined_1000_200000.csv"  # Output CSV file with affiliation
+OPENAI_API_KEY = os.getenv('openai_api_key')  # OpenAI API key from .env
+MODEL_ID = "gpt-4.1-nano"  # OpenAI model (gpt-4o-mini is cost-effective, or use gpt-4o for best quality)
 MAX_RETRIES = 3  # Maximum number of retries for failed requests
 MAX_WORKERS = 12  # Number of parallel workers for multithreading
+USE_CACHE = True  # Use cached annotations from previous runs (set to False to force re-annotation)
+CACHE_DIR = "cache"  # Directory to store annotation cache files
 # ============================
 
-class AffiliationExtractor:
+class AffiliationExtractorOpenAI:
     # Cached system prompt - defined once at class level to enable prompt caching
-    SYSTEM_PROMPT = """You are a classification AI. Output one lowercase word only.
+    SYSTEM_PROMPT = """You are a classification AI. Respond with EXACTLY ONE WORD based on the repository's README or description.
 
-Classes:
-israel, palestine, blm, ukraine, climate, feminism, lgbtq, democrats, republican, none
+Categories
+israel – Israel, Israeli support, Stand with Israel, 🇮🇱, ✡️, 🎗️
 
-Rules:
-- Read README + description.
-- Reply only one word, no punctuation or explanation.
-- Classify only if clear affiliation or activism.
+palestine – Palestine, Gaza, Free Palestine, pro-Palestine, 🇵🇸, 🍉
 
-If multiple → choose dominant.
-If unclear or neutral → none"""
+blm – Black Lives Matter, racial justice, anti-racism, ✊🏾, ✊🏿
+
+ukraine – Ukraine, Stand with Ukraine, pro-Ukraine, 🇺🇦, 🌻
+
+climate – Climate change, sustainability, climate action, ♻️, 🌱, 🌍
+
+feminism – Women's rights, gender equality, feminism, ♀️, 👩
+
+lgbtq – LGBTQ, pride, queer, transgender rights, 🏳️‍🌈, 🏳️‍⚧️
+
+democrat – US Democrats, Biden, blue wave, Democratic Party, 🐴
+
+republican – US Republicans, GOP, Trump, conservative, red wave, 🐘
+
+none – No clear affiliation
+
+Rules
+
+Reply with only one word:
+israel, palestine, blm, ukraine, climate, feminism, lgbtq, democrat, republican, none
+
+Use lowercase only.
+
+No punctuation, no emoji, no explanation.
+
+Only classify when there is clear evidence.
+
+If unclear, neutral, or unrelated → none.
+
+If multiple appear, choose the most dominant affiliation."""
     
     def __init__(self, api_key, model_id):
         """
-        Initialize the Affiliation Extractor
+        Initialize the Affiliation Extractor with OpenAI
         
         Args:
-            api_key: DeepSeek API key
-            model_id: DeepSeek model ID
+            api_key: OpenAI API key
+            model_id: OpenAI model ID
         """
         self.api_key = api_key
         self.model_id = model_id
-        self.base_url = "https://api.deepseek.com/chat/completions"
+        self.base_url = "https://api.openai.com/v1/chat/completions"
         self.headers = {
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json"
         }
         self.print_lock = Lock()  # Thread-safe printing
+        self.cache = {}  # Cache for storing annotations {repo_url: affiliation}
+        self.cache_file = None  # Current cache file path
+        self.cache_hits = 0  # Track cache hits
+        self.cache_misses = 0  # Track cache misses
+    
+    def load_cache(self, use_cache=True):
+        """
+        Load the latest cache file or create a new one
+        
+        Args:
+            use_cache: Whether to use existing cache (True) or create new cache (False)
+        """
+        import json
+        import glob
+        
+        # Create cache directory if it doesn't exist
+        os.makedirs(CACHE_DIR, exist_ok=True)
+        
+        if use_cache:
+            # Find all cache files for OpenAI
+            cache_pattern = os.path.join(CACHE_DIR, "affiliation_cache_openai_*.json")
+            cache_files = glob.glob(cache_pattern)
+            
+            if cache_files:
+                # Get the latest cache file by timestamp
+                latest_cache = max(cache_files, key=os.path.getmtime)
+                self.cache_file = latest_cache
+                
+                try:
+                    with open(latest_cache, 'r', encoding='utf-8') as f:
+                        self.cache = json.load(f)
+                    print(f"✅ Loaded cache from: {os.path.basename(latest_cache)}")
+                    print(f"   Cache entries: {len(self.cache):,}")
+                    return
+                except Exception as e:
+                    print(f"⚠️  Could not load cache: {e}")
+                    print(f"   Creating new cache...")
+        
+        # Create new cache file with timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        self.cache_file = os.path.join(CACHE_DIR, f"affiliation_cache_openai_{timestamp}.json")
+        self.cache = {}
+        print(f"📝 Created new cache: {os.path.basename(self.cache_file)}")
+    
+    def save_cache(self):
+        """
+        Save the current cache to file
+        """
+        import json
+        
+        try:
+            with open(self.cache_file, 'w', encoding='utf-8') as f:
+                json.dump(self.cache, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            print(f"⚠️  Warning: Could not save cache: {e}")
+    
+    def get_cached_affiliation(self, repo_url):
+        """
+        Get cached affiliation for a repository
+        
+        Args:
+            repo_url: Repository URL
+            
+        Returns:
+            Cached affiliation or None if not found
+        """
+        if repo_url in self.cache:
+            self.cache_hits += 1
+            return self.cache[repo_url]
+        self.cache_misses += 1
+        return None
+    
+    def set_cached_affiliation(self, repo_url, affiliation):
+        """
+        Store affiliation in cache
+        
+        Args:
+            repo_url: Repository URL
+            affiliation: Affiliation classification
+        """
+        self.cache[repo_url] = affiliation
+        
+        # Auto-save cache every 10 new entries
+        if self.cache_misses % 10 == 0:
+            self.save_cache()
     
     def classify_affiliation(self, readme_text, max_retries=3):
         """
-        Classify the affiliation of a repository based on its README
+        Classify the affiliation of a repository based on its README using OpenAI
         
         Args:
             readme_text: README content
             max_retries: Maximum number of retries
             
         Returns:
-            Affiliation string: 'israel', 'palestine', 'blm', 'ukraine', 'climate', 'feminism', 'lgbtq', 'democrats', 'republican', or 'none'
+            Affiliation string: 'israel', 'palestine', 'blm', 'ukraine', 'climate', 'feminism', 'lgbtq', 'democrat', 'republican', or 'none'
         """
         if not readme_text or pd.isna(readme_text) or readme_text.strip() == "":
             return "none"
@@ -74,13 +186,13 @@ If unclear or neutral → none"""
         
         user_prompt = f"README content:\n\n{readme_text}\n\nClassification:"
         
-        # Use DeepSeek API format with cached system prompt
+        # Use OpenAI API format
         payload = {
             "model": self.model_id,
             "messages": [
                 {
                     "role": "system",
-                    "content": self.SYSTEM_PROMPT  # Use cached prompt
+                    "content": self.SYSTEM_PROMPT
                 },
                 {
                     "role": "user",
@@ -100,7 +212,7 @@ If unclear or neutral → none"""
                 if response.status_code == 200:
                     result = response.json()
                     
-                    # Extract the response text from DeepSeek format
+                    # Extract the response text from OpenAI format
                     if isinstance(result, dict) and 'choices' in result:
                         affiliation = result['choices'][0]['message']['content']
                     else:
@@ -110,7 +222,7 @@ If unclear or neutral → none"""
                     affiliation = affiliation.lower().strip().replace('.', '').replace('!', '')
                     
                     # Extract valid affiliation
-                    valid_affiliations = ['israel', 'palestine', 'blm', 'ukraine', 'climate', 'feminism', 'lgbtq', 'democrats', 'republican', 'none']
+                    valid_affiliations = ['israel', 'palestine', 'blm', 'ukraine', 'climate', 'feminism', 'lgbtq', 'democrat', 'republican', 'none']
                     for valid in valid_affiliations:
                         if valid in affiliation:
                             return valid
@@ -151,9 +263,18 @@ If unclear or neutral → none"""
         """
         repo_owner = row.get('repo_owner', 'unknown')
         repo_name = row.get('repo_name', 'unknown')
+        repo_url = row.get('repo_url', '')
         readme = row.get('readme', '')
         description = row.get('description', '')
         found_emojis = row.get('found_emojis', '')
+        
+        # Check cache first
+        cached_affiliation = self.get_cached_affiliation(repo_url)
+        if cached_affiliation is not None:
+            with self.print_lock:
+                print(f"[{idx + 1}/{total}] 💾 {repo_owner}/{repo_name} (cached)")
+                print(f"   ✅ Affiliation: {cached_affiliation.upper()}")
+            return idx, cached_affiliation
         
         # Combine description, found emojis, and readme for better classification
         combined_text = f"Description: {description}\n"
@@ -167,6 +288,9 @@ If unclear or neutral → none"""
                 print(f"   Found emojis: {found_emojis}")
         
         affiliation = self.classify_affiliation(combined_text, max_retries=MAX_RETRIES)
+        
+        # Store in cache
+        self.set_cached_affiliation(repo_url, affiliation)
         
         with self.print_lock:
             print(f"   ✅ Affiliation: {affiliation.upper()}")
@@ -188,7 +312,7 @@ If unclear or neutral → none"""
             Success status
         """
         print("\n" + "=" * 60)
-        print("AFFILIATION EXTRACTOR - Analyzing GitHub Repositories")
+        print("AFFILIATION EXTRACTOR (OpenAI) - Analyzing GitHub Repositories")
         print("=" * 60 + "\n")
         
         # Load CSV file
@@ -197,7 +321,14 @@ If unclear or neutral → none"""
             return False
         
         try:
-            df = pd.read_csv(input_file)
+            print(f"📂 Loading CSV file (this may take a moment for large files)...")
+            # Try fast C engine first, fall back to Python engine if needed
+            try:
+                df = pd.read_csv(input_file, encoding='utf-8', low_memory=False)
+            except Exception:
+                print("   ⚠️  Standard loading failed, trying robust mode...")
+                df = pd.read_csv(input_file, encoding='utf-8', engine='python', on_bad_lines='skip')
+            
             print(f"✅ Loaded {input_file}")
             print(f"   Rows: {len(df):,} | Columns: {len(df.columns)}")
             print(f"   Columns: {', '.join(df.columns)}\n")
@@ -210,10 +341,13 @@ If unclear or neutral → none"""
             print("❌ 'readme' column not found in CSV")
             return False
         
+        # Load cache
+        self.load_cache(use_cache=USE_CACHE)
+        
         # Add affiliation column with multithreading
-        print("🔍 Analyzing affiliations using DeepSeek LLM...")
+        print("\n🔍 Analyzing affiliations using OpenAI LLM...")
         print(f"   Model: {self.model_id}")
-        print(f"   Prompt Caching: ENABLED (reduces costs)")
+        print(f"   Annotation Cache: {'ENABLED' if USE_CACHE else 'DISABLED'}")
         print(f"   Workers: {MAX_WORKERS} parallel threads")
         print(f"   Total repositories to process: {len(df):,}\n")
         
@@ -239,7 +373,17 @@ If unclear or neutral → none"""
                     affiliations[idx] = 'none'
         
         # Add affiliation column to dataframe
-        df['affiliation_deepseek'] = affiliations
+        df['affiliation_openai'] = affiliations
+        
+        # Save final cache
+        self.save_cache()
+        
+        # Display cache statistics
+        print(f"\n📊 Cache Statistics:")
+        print(f"   Cache hits: {self.cache_hits:,} ({(self.cache_hits/(self.cache_hits+self.cache_misses)*100) if (self.cache_hits+self.cache_misses) > 0 else 0:.1f}%)")
+        print(f"   Cache misses (new annotations): {self.cache_misses:,}")
+        print(f"   Total cache entries: {len(self.cache):,}")
+        print(f"   Cache file: {os.path.basename(self.cache_file)}")
         
         # Save to CSV
         print(f"\n💾 Saving results to {output_file}...")
@@ -249,10 +393,10 @@ If unclear or neutral → none"""
             
             # Statistics
             print("\n" + "=" * 60)
-            print("📊 AFFILIATION STATISTICS (DeepSeek)")
+            print("📊 AFFILIATION STATISTICS (OpenAI)")
             print("=" * 60)
             
-            affiliation_counts = df['affiliation_deepseek'].value_counts()
+            affiliation_counts = df['affiliation_openai'].value_counts()
             for affiliation, count in affiliation_counts.items():
                 percentage = (count / len(df)) * 100
                 print(f"{affiliation.upper():15s}: {count:4d} ({percentage:5.1f}%)")
@@ -272,10 +416,10 @@ If unclear or neutral → none"""
     
     def save_extraction_report(self, df, output_file):
         """
-        Save detailed extraction report to logs/extraction_report_deepseek.txt
+        Save detailed extraction report to logs/extraction_report_openai.txt
         
         Args:
-            df: DataFrame with affiliation_deepseek column
+            df: DataFrame with affiliation_openai column
             output_file: Output CSV filename
         """
         import os
@@ -284,12 +428,12 @@ If unclear or neutral → none"""
             # Create logs directory if it doesn't exist
             os.makedirs('logs', exist_ok=True)
             
-            log_file = 'logs/extraction_report_deepseek.txt'
+            log_file = 'logs/extraction_report_openai.txt'
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             
             with open(log_file, 'a', encoding='utf-8') as f:
                 f.write(f"\n{'='*70}\n")
-                f.write(f"AFFILIATION EXTRACTION REPORT (DeepSeek) - {timestamp}\n")
+                f.write(f"AFFILIATION EXTRACTION REPORT (OpenAI) - {timestamp}\n")
                 f.write(f"{'='*70}\n")
                 f.write(f"Model: {self.model_id}\n")
                 f.write(f"Output: {output_file}\n")
@@ -300,7 +444,7 @@ If unclear or neutral → none"""
                 f.write(f"AFFILIATION STATISTICS\n")
                 f.write(f"{'='*70}\n")
                 
-                affiliation_counts = df['affiliation_deepseek'].value_counts()
+                affiliation_counts = df['affiliation_openai'].value_counts()
                 for affiliation, count in affiliation_counts.items():
                     percentage = (count / len(df)) * 100
                     f.write(f"{affiliation.upper():15s}: {count:4d} ({percentage:5.1f}%)\n")
@@ -316,7 +460,7 @@ If unclear or neutral → none"""
                     
                     for idx, row in df.iterrows():
                         emojis_str = row.get('found_emojis', '')
-                        affiliation = row.get('affiliation_deepseek', 'none')
+                        affiliation = row.get('affiliation_openai', 'none')
                         
                         if pd.notna(emojis_str) and emojis_str:
                             emojis = emojis_str.split()
@@ -362,25 +506,25 @@ If unclear or neutral → none"""
 
 def main():
     """
-    Main function to extract affiliations
+    Main function to extract affiliations using OpenAI
     """
     print("\n" + "=" * 60)
-    print("GITHUB REPOSITORY AFFILIATION EXTRACTOR")
+    print("GITHUB REPOSITORY AFFILIATION EXTRACTOR (OpenAI)")
     print("=" * 60)
     print(f"\nInput file: {INPUT_CSV}")
     print(f"Output file: {OUTPUT_CSV}")
     print(f"Model: {MODEL_ID}")
     
     # Check if API key is available
-    if not DEEPSEEK_API_KEY:
-        print("\n❌ Error: DeepSeek API key not found in .env file")
-        print("   Please ensure 'deepseek_api_key' is set in .env")
+    if not OPENAI_API_KEY:
+        print("\n❌ Error: OpenAI API key not found in .env file")
+        print("   Please ensure 'openai_api_key' is set in .env")
         return
     
-    print(f"API Key: {DEEPSEEK_API_KEY[:10]}...{DEEPSEEK_API_KEY[-4:]}")
+    print(f"API Key: {OPENAI_API_KEY[:10]}...{OPENAI_API_KEY[-4:]}")
     
     # Create extractor instance
-    extractor = AffiliationExtractor(DEEPSEEK_API_KEY, MODEL_ID)
+    extractor = AffiliationExtractorOpenAI(OPENAI_API_KEY, MODEL_ID)
     
     # Process the CSV
     success = extractor.process_csv(INPUT_CSV, OUTPUT_CSV)

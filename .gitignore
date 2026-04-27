@@ -31,3 +31,5 @@ batch_input_affiliation_10.jsonl
 github_affiliation_combined.csv
 datasets/
 manual_annotation_progress.txt
+FinalDataset/validity_checked_affiliated_deepseek_1000_200000.csv
+FinalDataset/validity_checked_affiliated_deepseek_1000_200000.csv

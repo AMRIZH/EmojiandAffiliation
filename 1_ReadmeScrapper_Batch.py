@@ -15,9 +15,9 @@ load_dotenv()
 # ============================
 # CONFIGURATION - Edit these variables
 # ============================
-OUTPUT_CSV = "github_readmes_batch.csv"  # Main output file (will be appended to)
 MIN_STARS = 100  # Minimum number of stars
 MAX_STARS = 300000  # Maximum number of stars
+OUTPUT_CSV = f"datasets/1_github_readme_{MIN_STARS}_{MAX_STARS}_{datetime.now().strftime('%d%m%Y')}.csv"  # Main output file (will be appended to)
 MIN_CONTRIBUTORS = 0  # Minimum number of contributors (0 = no minimum, contributors = people who made commits)
 README_CHAR_LIMIT = 1000000  # Maximum number of characters to keep from README
 NUMBER_OF_TOKENS = 20  # Total number of GitHub tokens available in .env file

@@ -18,7 +18,7 @@ warnings.filterwarnings('ignore', category=UserWarning, message='.*Glyph.*missin
 # ============================
 # CONFIGURATION - Edit these variables
 # ============================
-INPUT_CSV = r"datasets/affiliated_deepseek_1000_200000.csv"  # Input CSV file to visualize (output from AffiliationExtractor.py)
+INPUT_CSV = r"datasets/validity_checked_affiliated_deepseek_1000_200000.csv"  # Input CSV file to visualize (output from AffiliationExtractor.py)
 # Alternative: "github_affiliation_openai.csv" (output from AffiliationExtractor_OpenAI.py)
 OUTPUT_DIR = "visualizations"  # Directory to save visualizations
 # ============================
@@ -496,6 +496,7 @@ class DataVisualizer:
             original_count = 0
             filtered_count = 0
             affiliated_count = 0
+            valid_count = 0  # explicit + implicit
             
             if os.path.exists(original_csv):
                 df_original = pd.read_csv(original_csv)
@@ -510,6 +511,11 @@ class DataVisualizer:
             affiliated_count = len(self.df[self.df['affiliation'] != 'none'])
             print(f"   📊 With affiliation: {affiliated_count:,}")
             
+            # Count repos with valid affiliation (explicit + implicit)
+            if 'validity' in self.df.columns:
+                valid_count = len(self.df[self.df['validity'].str.lower().isin(['explicit', 'implicit'])])
+                print(f"   📊 Valid affiliation (explicit + implicit): {valid_count:,}")
+            
             # If we don't have original data, estimate it
             if original_count == 0:
                 # Estimate based on typical emoji filter retention rate (~5-10%)
@@ -521,41 +527,49 @@ class DataVisualizer:
                 ('After Emoji Filter', filtered_count),
                 ('With Affiliation', affiliated_count)
             ]
+            
+            # Add valid affiliation stage if we have validity data
+            if valid_count > 0:
+                stages.append(('Valid Affiliation', valid_count))
+                
         except Exception as e:
             print(f"   ⚠️  Error loading pipeline data: {e}")
             # Use current data as fallback
             total = len(self.df)
             affiliated = len(self.df[self.df['affiliation'] != 'none'])
+            valid = len(self.df[self.df['validity'].str.lower().isin(['explicit', 'implicit'])]) if 'validity' in self.df.columns else 0
             stages = [
                 ('Initial Scrape', total * 10),  # Estimate
                 ('After Emoji Filter', total),
                 ('With Affiliation', affiliated)
             ]
+            if valid > 0:
+                stages.append(('Valid Affiliation', valid))
         
         fig, ax = plt.subplots(figsize=(10, 8))
         
-        colors_funnel = ['#64B5F6', '#FFB74D', '#81C784']
+        colors_funnel = ['#64B5F6', '#FFB74D', '#81C784', '#9575CD']
         
         for i, (label, count) in enumerate(stages):
-            width = 0.8 - (i * 0.25)
+            width = 0.8 - (i * 0.2)
             x_center = 0.5
-            y_pos = 0.8 - (i * 0.25)
+            y_pos = 0.85 - (i * 0.2)
             
             # Draw trapezoid
             if i < len(stages) - 1:
-                next_width = 0.8 - ((i + 1) * 0.25)
+                next_width = 0.8 - ((i + 1) * 0.2)
                 points = [
                     [x_center - width/2, y_pos],
                     [x_center + width/2, y_pos],
-                    [x_center + next_width/2, y_pos - 0.2],
-                    [x_center - next_width/2, y_pos - 0.2]
+                    [x_center + next_width/2, y_pos - 0.18],
+                    [x_center - next_width/2, y_pos - 0.18]
                 ]
             else:
                 points = [
                     [x_center - width/2, y_pos],
                     [x_center + width/2, y_pos],
-                    [x_center + width/2, y_pos - 0.15],
-                    [x_center - width/2, y_pos - 0.15]
+                    [x_center + width/2, y_pos - 0.12],
+                    [x_center - width/2, y_pos - 0.12]
                 ]
             
             polygon = plt.Polygon(points, facecolor=colors_funnel[i], 
@@ -563,13 +577,13 @@ class DataVisualizer:
             ax.add_patch(polygon)
             
             # Add text
-            ax.text(x_center, y_pos - 0.07, f'{label}\n{count:,} repos',
-                   ha='center', va='center', fontsize=12, fontweight='bold')
+            ax.text(x_center, y_pos - 0.06, f'{label}\n{count:,} repos',
+                   ha='center', va='center', fontsize=11, fontweight='bold')
             
             # Add retention rate (avoid division by zero)
             if i > 0 and stages[i-1][1] > 0:
                 retention = (count / stages[i-1][1]) * 100
-                ax.text(0.95, y_pos - 0.1, f'{retention:.1f}%',
+                ax.text(0.95, y_pos - 0.08, f'{retention:.1f}%',
                        ha='left', va='center', fontsize=10, style='italic')
         
         ax.set_xlim(0, 1.2)

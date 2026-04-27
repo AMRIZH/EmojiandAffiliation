@@ -1,0 +1,1244 @@
+================================================================================
+GITHUB REPOSITORIES WITH POLITICAL AFFILIATION
+================================================================================
+Generated: 2025-11-10 19:44:57
+
+SUMMARY STATISTICS:
+  Total Repositories with Affiliation: 145
+  Explicit Affiliations: 52 (35.9%)
+  Implicit Affiliations: 7 (4.8%)
+  False/Other: 86 (59.3%)
+================================================================================
+
+
+================================================================================
+AFFILIATION: BLM
+Count: 1 repositories
+================================================================================
+
+[1] lukeed/polka
+    Stars: 5,550
+    Contributors: 14
+    URL: https://github.com/lukeed/polka
+    Emojis: ✊🏾 😔 ✊ ✊🏿
+    Affiliation (DeepSeek): BLM
+    Validity: EXPLICIT
+
+
+================================================================================
+AFFILIATION: CLIMATE
+Count: 2 repositories
+================================================================================
+
+[1] Arize-ai/phoenix
+    Stars: 7,298
+    Contributors: 134
+    URL: https://github.com/Arize-ai/phoenix
+    Emojis: 🌍
+    Affiliation (DeepSeek): CLIMATE
+    Validity: FALSE
+
+[2] ONEARMY/community-platform
+    Stars: 1,329
+    Contributors: 209
+    URL: https://github.com/ONEARMY/community-platform
+    Emojis: 🌍
+    Affiliation (DeepSeek): CLIMATE
+    Validity: EXPLICIT
+
+
+================================================================================
+AFFILIATION: DEMOCRATS
+Count: 2 repositories
+================================================================================
+
+[1] rockbenben/ChatGPT-Shortcut
+    Stars: 6,409
+    Contributors: 7
+    URL: https://github.com/rockbenben/ChatGPT-Shortcut
+    Emojis: 🗳️ 🌍
+    Affiliation (DeepSeek): DEMOCRATS
+    Validity: FALSE
+
+[2] vortex-data/vortex
+    Stars: 1,886
+    Contributors: 27
+    URL: https://github.com/vortex-data/vortex
+    Emojis: 🗳️
+    Affiliation (DeepSeek): DEMOCRATS
+    Validity: FALSE
+
+
+================================================================================
+AFFILIATION: FEMINISM
+Count: 10 repositories
+================================================================================
+
+[1] yuliskov/SmartTube
+    Stars: 25,008
+    Contributors: 145
+    URL: https://github.com/yuliskov/SmartTube
+    Emojis: ♀️
+    Affiliation (DeepSeek): FEMINISM
+    Validity: FALSE
+
+[2] bee-san/pyWhat
+    Stars: 7,073
+    Contributors: 38
+    URL: https://github.com/bee-san/pyWhat
+    Emojis: ♀️
+    Affiliation (DeepSeek): FEMINISM
+    Validity: FALSE
+
+[3] charmbracelet/huh
+    Stars: 6,185
+    Contributors: 50
+    URL: https://github.com/charmbracelet/huh
+    Emojis: ♀️
+    Affiliation (DeepSeek): FEMINISM
+    Validity: FALSE
+
+[4] arrowtype/recursive
+    Stars: 3,613
+    Contributors: 13
+    URL: https://github.com/arrowtype/recursive
+    Emojis: ♀️
+    Affiliation (DeepSeek): FEMINISM
+    Validity: FALSE
+
+[5] KoljaB/RealtimeVoiceChat
+    Stars: 3,272
+    Contributors: 2
+    URL: https://github.com/KoljaB/RealtimeVoiceChat
+    Emojis: ♀️
+    Affiliation (DeepSeek): FEMINISM
+    Validity: FALSE
+
+[6] Mayandev/notion-avatar
+    Stars: 3,152
+    Contributors: 11
+    URL: https://github.com/Mayandev/notion-avatar
+    Emojis: ♀️
+    Affiliation (DeepSeek): FEMINISM
+    Validity: FALSE
+
+[7] RasaHQ/rasa_core
+    Stars: 2,340
+    Contributors: 122
+    URL: https://github.com/RasaHQ/rasa_core
+    Emojis: ♀️
+    Affiliation (DeepSeek): FEMINISM
+    Validity: FALSE
+
+[8] undreamai/LLMUnity
+    Stars: 1,318
+    Contributors: 11
+    URL: https://github.com/undreamai/LLMUnity
+    Emojis: ♀️
+    Affiliation (DeepSeek): FEMINISM
+    Validity: FALSE
+
+[9] wafinfo/DecryptTools
+    Stars: 1,264
+    Contributors: 1
+    URL: https://github.com/wafinfo/DecryptTools
+    Emojis: ♀️
+    Affiliation (DeepSeek): FEMINISM
+    Validity: FALSE
+
+[10] HarborYuan/ovsam
+    Stars: 1,009
+    Contributors: 6
+    URL: https://github.com/HarborYuan/ovsam
+    Emojis: ♀️
+    Affiliation (DeepSeek): FEMINISM
+    Validity: FALSE
+
+
+================================================================================
+AFFILIATION: ISRAEL
+Count: 1 repositories
+================================================================================
+
+[1] snyk/driftctl
+    Stars: 2,587
+    Contributors: 51
+    URL: https://github.com/snyk/driftctl
+    Emojis: 🇮🇱 ❤️ 🇺🇸
+    Affiliation (DeepSeek): ISRAEL
+    Validity: IMPLICIT
+
+
+================================================================================
+AFFILIATION: LGBTQ
+Count: 62 repositories
+================================================================================
+
+[1] photoprism/photoprism
+    Stars: 38,620
+    Contributors: 187
+    URL: https://github.com/photoprism/photoprism
+    Emojis: 🌈
+    Affiliation (DeepSeek): LGBTQ
+    Validity: FALSE
+
+[2] vueComponent/ant-design-vue
+    Stars: 21,188
+    Contributors: 298
+    URL: https://github.com/vueComponent/ant-design-vue
+    Emojis: 🌈
+    Affiliation (DeepSeek): LGBTQ
+    Validity: FALSE
+
+[3] pot-app/pot-desktop
+    Stars: 15,584
+    Contributors: 53
+    URL: https://github.com/pot-app/pot-desktop
+    Emojis: 🌈
+    Affiliation (DeepSeek): LGBTQ
+    Validity: FALSE
+
+[4] willwulfken/MidJourney-Styles-and-Keywords-Reference
+    Stars: 12,241
+    Contributors: 11
+    URL: https://github.com/willwulfken/MidJourney-Styles-and-Keywords-Reference
+    Emojis: 🌈
+    Affiliation (DeepSeek): LGBTQ
+    Validity: FALSE
+
+[5] metafizzy/isotope
+    Stars: 11,103
+    Contributors: 12
+    URL: https://github.com/metafizzy/isotope
+    Emojis: 🌈
+    Affiliation (DeepSeek): LGBTQ
+    Validity: FALSE
+
+[6] blueedgetechno/win11React
+    Stars: 9,560
+    Contributors: 46
+    URL: https://github.com/blueedgetechno/win11React
+    Emojis: 🌈
+    Affiliation (DeepSeek): LGBTQ
+    Validity: FALSE
+
+[7] crossoverJie/cim
+    Stars: 9,453
+    Contributors: 15
+    URL: https://github.com/crossoverJie/cim
+    Emojis: 🌈
+    Affiliation (DeepSeek): LGBTQ
+    Validity: FALSE
+
+[8] Stability-AI/StableStudio
+    Stars: 9,025
+    Contributors: 8
+    URL: https://github.com/Stability-AI/StableStudio
+    Emojis: 🌈
+    Affiliation (DeepSeek): LGBTQ
+    Validity: FALSE
+
+[9] developit/htm
+    Stars: 8,951
+    Contributors: 31
+    URL: https://github.com/developit/htm
+    Emojis: 🌈
+    Affiliation (DeepSeek): LGBTQ
+    Validity: FALSE
+
+[10] metafizzy/infinite-scroll
+    Stars: 7,473
+    Contributors: 57
+    URL: https://github.com/metafizzy/infinite-scroll
+    Emojis: 🌈
+    Affiliation (DeepSeek): LGBTQ
+    Validity: FALSE
+
+[11] react95-io/React95
+    Stars: 7,062
+    Contributors: 25
+    URL: https://github.com/react95-io/React95
+    Emojis: 🌈
+    Affiliation (DeepSeek): LGBTQ
+    Validity: FALSE
+
+[12] Moosphan/Android-Daily-Interview
+    Stars: 5,606
+    Contributors: 5
+    URL: https://github.com/Moosphan/Android-Daily-Interview
+    Emojis: 🏳️‍🌈
+    Affiliation (DeepSeek): LGBTQ
+    Validity: FALSE
+
+[13] tebelorg/RPA-Python
+    Stars: 5,358
+    Contributors: 4
+    URL: https://github.com/tebelorg/RPA-Python
+    Emojis: ❤️ 🏳️‍🌈
+    Affiliation (DeepSeek): LGBTQ
+    Validity: FALSE
+
+[14] iuricode/recursos-gratuitos
+    Stars: 5,034
+    Contributors: 24
+    URL: https://github.com/iuricode/recursos-gratuitos
+    Emojis: 🌈
+    Affiliation (DeepSeek): LGBTQ
+    Validity: FALSE
+
+[15] izhangzhihao/intellij-rainbow-brackets
+    Stars: 4,608
+    Contributors: 23
+    URL: https://github.com/izhangzhihao/intellij-rainbow-brackets
+    Emojis: 🌈
+    Affiliation (DeepSeek): LGBTQ
+    Validity: FALSE
+
+[16] sferik/twitter-ruby
+    Stars: 4,578
+    Contributors: 206
+    URL: https://github.com/sferik/twitter-ruby
+    Emojis: 🌈
+    Affiliation (DeepSeek): LGBTQ
+    Validity: FALSE
+
+[17] laylavish/uBlockOrigin-HUGE-AI-Blocklist
+    Stars: 4,238
+    Contributors: 42
+    URL: https://github.com/laylavish/uBlockOrigin-HUGE-AI-Blocklist
+    Emojis: 🏳️‍⚧️ 🌈 🏳️‍🌈
+    Affiliation (DeepSeek): LGBTQ
+    Validity: EXPLICIT
+
+[18] mushan0x0/AI0x0.com
+    Stars: 3,934
+    Contributors: 2
+    URL: https://github.com/mushan0x0/AI0x0.com
+    Emojis: 🌈
+    Affiliation (DeepSeek): LGBTQ
+    Validity: FALSE
+
+[19] sindresorhus/ow
+    Stars: 3,867
+    Contributors: 38
+    URL: https://github.com/sindresorhus/ow
+    Emojis: 🌈
+    Affiliation (DeepSeek): LGBTQ
+    Validity: FALSE
+
+[20] javahuang/SurveyKing
+    Stars: 3,775
+    Contributors: 13
+    URL: https://github.com/javahuang/SurveyKing
+    Emojis: 🌈
+    Affiliation (DeepSeek): LGBTQ
+    Validity: FALSE
+
+[21] release-drafter/release-drafter
+    Stars: 3,760
+    Contributors: 83
+    URL: https://github.com/release-drafter/release-drafter
+    Emojis: 🌈
+    Affiliation (DeepSeek): LGBTQ
+    Validity: FALSE
+
+[22] sindresorhus/meow
+    Stars: 3,650
+    Contributors: 45
+    URL: https://github.com/sindresorhus/meow
+    Emojis: 🌈
+    Affiliation (DeepSeek): LGBTQ
+    Validity: FALSE
+
+[23] folke/flash.nvim
+    Stars: 3,603
+    Contributors: 13
+    URL: https://github.com/folke/flash.nvim
+    Emojis: 🌈
+    Affiliation (DeepSeek): LGBTQ
+    Validity: FALSE
+
+[24] qazbnm456/awesome-cve-poc
+    Stars: 3,447
+    Contributors: 6
+    URL: https://github.com/qazbnm456/awesome-cve-poc
+    Emojis: 🌈
+    Affiliation (DeepSeek): LGBTQ
+    Validity: FALSE
+
+[25] milooy/remote-or-flexible-work-company-in-korea
+    Stars: 3,313
+    Contributors: 131
+    URL: https://github.com/milooy/remote-or-flexible-work-company-in-korea
+    Emojis: 🌈
+    Affiliation (DeepSeek): LGBTQ
+    Validity: FALSE
+
+[26] zizmorcore/zizmor
+    Stars: 3,224
+    Contributors: 58
+    URL: https://github.com/zizmorcore/zizmor
+    Emojis: 🌈
+    Affiliation (DeepSeek): LGBTQ
+    Validity: FALSE
+
+[27] web-infra-dev/garfish
+    Stars: 2,825
+    Contributors: 61
+    URL: https://github.com/web-infra-dev/garfish
+    Emojis: 🌈
+    Affiliation (DeepSeek): LGBTQ
+    Validity: FALSE
+
+[28] twostraws/Inferno
+    Stars: 2,719
+    Contributors: 21
+    URL: https://github.com/twostraws/Inferno
+    Emojis: 🌈 🏳️‍🌈
+    Affiliation (DeepSeek): LGBTQ
+    Validity: FALSE
+
+[29] theoephraim/node-google-spreadsheet
+    Stars: 2,446
+    Contributors: 70
+    URL: https://github.com/theoephraim/node-google-spreadsheet
+    Emojis: 🌈
+    Affiliation (DeepSeek): LGBTQ
+    Validity: FALSE
+
+[30] sindresorhus/emoj
+    Stars: 2,406
+    Contributors: 9
+    URL: https://github.com/sindresorhus/emoj
+    Emojis: 🌈
+    Affiliation (DeepSeek): LGBTQ
+    Validity: FALSE
+
+[31] bionic-gpt/bionic-gpt
+    Stars: 2,266
+    Contributors: 16
+    URL: https://github.com/bionic-gpt/bionic-gpt
+    Emojis: 🌈
+    Affiliation (DeepSeek): LGBTQ
+    Validity: FALSE
+
+[32] youyuge34/PI-REC
+    Stars: 2,059
+    Contributors: 5
+    URL: https://github.com/youyuge34/PI-REC
+    Emojis: 🌈 🏳️‍🌈 🔥
+    Affiliation (DeepSeek): LGBTQ
+    Validity: FALSE
+
+[33] sindresorhus/emittery
+    Stars: 1,990
+    Contributors: 30
+    URL: https://github.com/sindresorhus/emittery
+    Emojis: 🌈
+    Affiliation (DeepSeek): LGBTQ
+    Validity: FALSE
+
+[34] ms-jpq/sad
+    Stars: 1,969
+    Contributors: 19
+    URL: https://github.com/ms-jpq/sad
+    Emojis: 🌈
+    Affiliation (DeepSeek): LGBTQ
+    Validity: FALSE
+
+[35] anse-app/anse
+    Stars: 1,965
+    Contributors: 26
+    URL: https://github.com/anse-app/anse
+    Emojis: 🌈
+    Affiliation (DeepSeek): LGBTQ
+    Validity: FALSE
+
+[36] Thecosy/IceCMS
+    Stars: 1,869
+    Contributors: 4
+    URL: https://github.com/Thecosy/IceCMS
+    Emojis: 🌈
+    Affiliation (DeepSeek): LGBTQ
+    Validity: FALSE
+
+[37] atomiks/tippyjs-react
+    Stars: 1,819
+    Contributors: 16
+    URL: https://github.com/atomiks/tippyjs-react
+    Emojis: 🌈
+    Affiliation (DeepSeek): LGBTQ
+    Validity: FALSE
+
+[38] nexxtway/react-rainbow
+    Stars: 1,794
+    Contributors: 51
+    URL: https://github.com/nexxtway/react-rainbow
+    Emojis: 🌈
+    Affiliation (DeepSeek): LGBTQ
+    Validity: FALSE
+
+[39] AAndyProgram/SCrawler
+    Stars: 1,779
+    Contributors: 2
+    URL: https://github.com/AAndyProgram/SCrawler
+    Emojis: 🌈 🏳️‍🌈
+    Affiliation (DeepSeek): LGBTQ
+    Validity: EXPLICIT
+
+[40] agentuniverse-ai/agentUniverse
+    Stars: 1,779
+    Contributors: 50
+    URL: https://github.com/agentuniverse-ai/agentUniverse
+    Emojis: 🌈
+    Affiliation (DeepSeek): LGBTQ
+    Validity: FALSE
+
+[41] hykilpikonna/hyfetch
+    Stars: 1,776
+    Contributors: 497
+    URL: https://github.com/hykilpikonna/hyfetch
+    Emojis: 🏳️‍⚧️ 🌈 🏳️‍🌈
+    Affiliation (DeepSeek): LGBTQ
+    Validity: IMPLICIT
+
+[42] sindresorhus/is
+    Stars: 1,735
+    Contributors: 51
+    URL: https://github.com/sindresorhus/is
+    Emojis: 🌈
+    Affiliation (DeepSeek): LGBTQ
+    Validity: FALSE
+
+[43] eylonmiz/react-agent
+    Stars: 1,638
+    Contributors: 6
+    URL: https://github.com/eylonmiz/react-agent
+    Emojis: 🌈
+    Affiliation (DeepSeek): LGBTQ
+    Validity: FALSE
+
+[44] jorgebucaran/colorette
+    Stars: 1,617
+    Contributors: 18
+    URL: https://github.com/jorgebucaran/colorette
+    Emojis: 🌈
+    Affiliation (DeepSeek): LGBTQ
+    Validity: FALSE
+
+[45] gloriasoft/veaury
+    Stars: 1,607
+    Contributors: 9
+    URL: https://github.com/gloriasoft/veaury
+    Emojis: 🌈
+    Affiliation (DeepSeek): LGBTQ
+    Validity: FALSE
+
+[46] QiuChenly/CoreInject
+    Stars: 1,602
+    Contributors: 1
+    URL: https://github.com/QiuChenly/CoreInject
+    Emojis: ❤️ 🌈 🏳️‍🌈
+    Affiliation (DeepSeek): LGBTQ
+    Validity: EXPLICIT
+
+[47] wzc520pyfm/ant-design-x-vue
+    Stars: 1,600
+    Contributors: 27
+    URL: https://github.com/wzc520pyfm/ant-design-x-vue
+    Emojis: 🌈 🔥
+    Affiliation (DeepSeek): LGBTQ
+    Validity: FALSE
+
+[48] homerchen19/github-file-icons
+    Stars: 1,571
+    Contributors: 21
+    URL: https://github.com/homerchen19/github-file-icons
+    Emojis: 🌈
+    Affiliation (DeepSeek): LGBTQ
+    Validity: FALSE
+
+[49] auroral-ui/hexo-theme-aurora
+    Stars: 1,541
+    Contributors: 12
+    URL: https://github.com/auroral-ui/hexo-theme-aurora
+    Emojis: ❤️ 🌈 💙 🏳️‍🌈
+    Affiliation (DeepSeek): LGBTQ
+    Validity: EXPLICIT
+
+[50] saermart/DouyinLiveWebFetcher
+    Stars: 1,439
+    Contributors: 1
+    URL: https://github.com/saermart/DouyinLiveWebFetcher
+    Emojis: 🌈
+    Affiliation (DeepSeek): LGBTQ
+    Validity: FALSE
+
+[51] Open-Source-O1/Open-O1
+    Stars: 1,350
+    Contributors: 2
+    URL: https://github.com/Open-Source-O1/Open-O1
+    Emojis: 🌈
+    Affiliation (DeepSeek): LGBTQ
+    Validity: FALSE
+
+[52] vechai/vechaiui
+    Stars: 1,218
+    Contributors: 10
+    URL: https://github.com/vechai/vechaiui
+    Emojis: 🌈
+    Affiliation (DeepSeek): LGBTQ
+    Validity: FALSE
+
+[53] FossifyOrg/File-Manager
+    Stars: 1,165
+    Contributors: 253
+    URL: https://github.com/FossifyOrg/File-Manager
+    Emojis: 🌈
+    Affiliation (DeepSeek): LGBTQ
+    Validity: FALSE
+
+[54] lmittmann/tint
+    Stars: 1,152
+    Contributors: 10
+    URL: https://github.com/lmittmann/tint
+    Emojis: 🌈
+    Affiliation (DeepSeek): LGBTQ
+    Validity: FALSE
+
+[55] SeaDve/Mousai
+    Stars: 1,137
+    Contributors: 24
+    URL: https://github.com/SeaDve/Mousai
+    Emojis: 🌈
+    Affiliation (DeepSeek): LGBTQ
+    Validity: FALSE
+
+[56] dwyl/aws-sdk-mock
+    Stars: 1,135
+    Contributors: 61
+    URL: https://github.com/dwyl/aws-sdk-mock
+    Emojis: 🌈
+    Affiliation (DeepSeek): LGBTQ
+    Validity: FALSE
+
+[57] youyuge34/Anime-InPainting
+    Stars: 1,115
+    Contributors: 1
+    URL: https://github.com/youyuge34/Anime-InPainting
+    Emojis: 🌈 🏳️‍🌈
+    Affiliation (DeepSeek): LGBTQ
+    Validity: FALSE
+
+[58] rutikwankhade/CoverView
+    Stars: 1,089
+    Contributors: 10
+    URL: https://github.com/rutikwankhade/CoverView
+    Emojis: 🌈
+    Affiliation (DeepSeek): LGBTQ
+    Validity: FALSE
+
+[59] sindresorhus/copy-text-to-clipboard
+    Stars: 1,039
+    Contributors: 11
+    URL: https://github.com/sindresorhus/copy-text-to-clipboard
+    Emojis: 🌈
+    Affiliation (DeepSeek): LGBTQ
+    Validity: FALSE
+
+[60] FossifyOrg/Messages
+    Stars: 1,031
+    Contributors: 240
+    URL: https://github.com/FossifyOrg/Messages
+    Emojis: 🌈
+    Affiliation (DeepSeek): LGBTQ
+    Validity: FALSE
+
+[61] SaraVieira/fiddly
+    Stars: 1,014
+    Contributors: 13
+    URL: https://github.com/SaraVieira/fiddly
+    Emojis: 🌈 🏳️‍🌈
+    Affiliation (DeepSeek): LGBTQ
+    Validity: FALSE
+
+[62] LGCooci/KCObjc4_debug
+    Stars: 1,009
+    Contributors: 1
+    URL: https://github.com/LGCooci/KCObjc4_debug
+    Emojis: 🌈
+    Affiliation (DeepSeek): LGBTQ
+    Validity: FALSE
+
+
+================================================================================
+AFFILIATION: PALESTINE
+Count: 15 repositories
+================================================================================
+
+[1] LGUG2Z/komorebi
+    Stars: 13,058
+    Contributors: 53
+    URL: https://github.com/LGUG2Z/komorebi
+    Emojis: 🍉
+    Affiliation (DeepSeek): PALESTINE
+    Validity: IMPLICIT
+
+[2] Sayi/poi-tl
+    Stars: 4,888
+    Contributors: 24
+    URL: https://github.com/Sayi/poi-tl
+    Emojis: 🍉
+    Affiliation (DeepSeek): PALESTINE
+    Validity: FALSE
+
+[3] yusufyilmazfr/tasarim-desenleri-turkce-kaynak
+    Stars: 3,368
+    Contributors: 14
+    URL: https://github.com/yusufyilmazfr/tasarim-desenleri-turkce-kaynak
+    Emojis: 🇵🇸 ♀️
+    Affiliation (DeepSeek): PALESTINE
+    Validity: EXPLICIT
+
+[4] alisolanki/Welcome-to-Open-Source
+    Stars: 3,295
+    Contributors: 570
+    URL: https://github.com/alisolanki/Welcome-to-Open-Source
+    Emojis: 🍉
+    Affiliation (DeepSeek): PALESTINE
+    Validity: FALSE
+
+[5] Roave/SecurityAdvisories
+    Stars: 2,832
+    Contributors: 16
+    URL: https://github.com/Roave/SecurityAdvisories
+    Emojis: 🇵🇸 🇷🇺
+    Affiliation (DeepSeek): PALESTINE
+    Validity: EXPLICIT
+
+[6] yanzhenjie/Album
+    Stars: 2,503
+    Contributors: 7
+    URL: https://github.com/yanzhenjie/Album
+    Emojis: 🍉
+    Affiliation (DeepSeek): PALESTINE
+    Validity: FALSE
+
+[7] NightCatSama/vue-slider-component
+    Stars: 2,431
+    Contributors: 50
+    URL: https://github.com/NightCatSama/vue-slider-component
+    Emojis: 🍉
+    Affiliation (DeepSeek): PALESTINE
+    Validity: FALSE
+
+[8] akira-cn/moyu
+    Stars: 2,372
+    Contributors: 4
+    URL: https://github.com/akira-cn/moyu
+    Emojis: 🍉
+    Affiliation (DeepSeek): PALESTINE
+    Validity: FALSE
+
+[9] z2586300277/three-cesium-examples
+    Stars: 1,842
+    Contributors: 22
+    URL: https://github.com/z2586300277/three-cesium-examples
+    Emojis: 🍉
+    Affiliation (DeepSeek): PALESTINE
+    Validity: FALSE
+
+[10] FoundationVision/Infinity
+    Stars: 1,472
+    Contributors: 7
+    URL: https://github.com/FoundationVision/Infinity
+    Emojis: 🍉 🔥
+    Affiliation (DeepSeek): PALESTINE
+    Validity: FALSE
+
+[11] moeiscool/Shinobi
+    Stars: 1,379
+    Contributors: 20
+    URL: https://github.com/moeiscool/Shinobi
+    Emojis: 🇵🇸
+    Affiliation (DeepSeek): PALESTINE
+    Validity: IMPLICIT
+
+[12] azjezz/psl
+    Stars: 1,337
+    Contributors: 38
+    URL: https://github.com/azjezz/psl
+    Emojis: ❤️ 🇵🇸
+    Affiliation (DeepSeek): PALESTINE
+    Validity: EXPLICIT
+
+[13] zskingking/Jetpack-Mvvm
+    Stars: 1,310
+    Contributors: 1
+    URL: https://github.com/zskingking/Jetpack-Mvvm
+    Emojis: 🍉
+    Affiliation (DeepSeek): PALESTINE
+    Validity: FALSE
+
+[14] IDEA-Research/DINO-X-API
+    Stars: 1,253
+    Contributors: 5
+    URL: https://github.com/IDEA-Research/DINO-X-API
+    Emojis: 🍉 🔥
+    Affiliation (DeepSeek): PALESTINE
+    Validity: FALSE
+
+[15] aissat/easy_localization
+    Stars: 1,027
+    Contributors: 54
+    URL: https://github.com/aissat/easy_localization
+    Emojis: ❤️ 🔥
+    Affiliation (DeepSeek): PALESTINE
+    Validity: EXPLICIT
+
+
+================================================================================
+AFFILIATION: REPUBLICAN
+Count: 5 repositories
+================================================================================
+
+[1] plandex-ai/plandex
+    Stars: 14,555
+    Contributors: 27
+    URL: https://github.com/plandex-ai/plandex
+    Emojis: 🐘
+    Affiliation (DeepSeek): REPUBLICAN
+    Validity: FALSE
+
+[2] hxu296/tariff
+    Stars: 3,129
+    Contributors: 4
+    URL: https://github.com/hxu296/tariff
+    Emojis: 🔥
+    Affiliation (DeepSeek): REPUBLICAN
+    Validity: EXPLICIT
+
+[3] statoscope/statoscope
+    Stars: 1,551
+    Contributors: 27
+    URL: https://github.com/statoscope/statoscope
+    Emojis: 🐘
+    Affiliation (DeepSeek): REPUBLICAN
+    Validity: FALSE
+
+[4] ivanseidel/Is-Now-Illegal
+    Stars: 1,365
+    Contributors: 7
+    URL: https://github.com/ivanseidel/Is-Now-Illegal
+    Emojis: 😔
+    Affiliation (DeepSeek): REPUBLICAN
+    Validity: EXPLICIT
+
+[5] cheeaun/phanpy
+    Stars: 1,329
+    Contributors: 34
+    URL: https://github.com/cheeaun/phanpy
+    Emojis: 🐘
+    Affiliation (DeepSeek): REPUBLICAN
+    Validity: FALSE
+
+
+================================================================================
+AFFILIATION: UKRAINE
+Count: 47 repositories
+================================================================================
+
+[1] trekhleb/javascript-algorithms
+    Stars: 193,622
+    Contributors: 219
+    URL: https://github.com/trekhleb/javascript-algorithms
+    Emojis: ❤️ 🇺🇦
+    Affiliation (DeepSeek): UKRAINE
+    Validity: EXPLICIT
+
+[2] starship/starship
+    Stars: 51,811
+    Contributors: 637
+    URL: https://github.com/starship/starship
+    Emojis: ❤️ 🌱
+    Affiliation (DeepSeek): UKRAINE
+    Validity: EXPLICIT
+
+[3] Leaflet/Leaflet
+    Stars: 43,814
+    Contributors: 1,013
+    URL: https://github.com/Leaflet/Leaflet
+    Emojis: 🇺🇦
+    Affiliation (DeepSeek): UKRAINE
+    Validity: EXPLICIT
+
+[4] trekhleb/homemade-machine-learning
+    Stars: 23,746
+    Contributors: 3
+    URL: https://github.com/trekhleb/homemade-machine-learning
+    Emojis: ❤️ 🇺🇦
+    Affiliation (DeepSeek): UKRAINE
+    Validity: EXPLICIT
+
+[5] pavlobu/deskreen
+    Stars: 19,630
+    Contributors: 25
+    URL: https://github.com/pavlobu/deskreen
+    Emojis: 🌍 🇺🇦 🇷🇺
+    Affiliation (DeepSeek): UKRAINE
+    Validity: FALSE
+
+[6] sweetalert2/sweetalert2
+    Stars: 17,951
+    Contributors: 134
+    URL: https://github.com/sweetalert2/sweetalert2
+    Emojis: 🇺🇦
+    Affiliation (DeepSeek): UKRAINE
+    Validity: IMPLICIT
+
+[7] trekhleb/learn-python
+    Stars: 17,400
+    Contributors: 16
+    URL: https://github.com/trekhleb/learn-python
+    Emojis: 🇺🇦
+    Affiliation (DeepSeek): UKRAINE
+    Validity: EXPLICIT
+
+[8] verdaccio/verdaccio
+    Stars: 17,236
+    Contributors: 335
+    URL: https://github.com/verdaccio/verdaccio
+    Emojis: 🇺🇦
+    Affiliation (DeepSeek): UKRAINE
+    Validity: EXPLICIT
+
+[9] Tyrrrz/YoutubeDownloader
+    Stars: 13,135
+    Contributors: 24
+    URL: https://github.com/Tyrrrz/YoutubeDownloader
+    Emojis: 🇺🇦
+    Affiliation (DeepSeek): UKRAINE
+    Validity: EXPLICIT
+
+[10] Team-xManager/xManager
+    Stars: 11,923
+    Contributors: 53
+    URL: https://github.com/Team-xManager/xManager
+    Emojis: ❤️ 🇺🇦
+    Affiliation (DeepSeek): UKRAINE
+    Validity: FALSE
+
+[11] retejs/rete
+    Stars: 10,887
+    Contributors: 23
+    URL: https://github.com/retejs/rete
+    Emojis: 💛 💙
+    Affiliation (DeepSeek): UKRAINE
+    Validity: EXPLICIT
+
+[12] vuestorefront/vue-storefront
+    Stars: 10,874
+    Contributors: 423
+    URL: https://github.com/vuestorefront/vue-storefront
+    Emojis: 🇺🇦
+    Affiliation (DeepSeek): UKRAINE
+    Validity: EXPLICIT
+
+[13] webdriverio/webdriverio
+    Stars: 9,648
+    Contributors: 702
+    URL: https://github.com/webdriverio/webdriverio
+    Emojis: ❤️
+    Affiliation (DeepSeek): UKRAINE
+    Validity: EXPLICIT
+
+[14] Tyrrrz/DiscordChatExporter
+    Stars: 9,520
+    Contributors: 60
+    URL: https://github.com/Tyrrrz/DiscordChatExporter
+    Emojis: 🇺🇦
+    Affiliation (DeepSeek): UKRAINE
+    Validity: EXPLICIT
+
+[15] lepoco/wpfui
+    Stars: 8,859
+    Contributors: 93
+    URL: https://github.com/lepoco/wpfui
+    Emojis: ❤️
+    Affiliation (DeepSeek): UKRAINE
+    Validity: EXPLICIT
+
+[16] XcodesOrg/XcodesApp
+    Stars: 8,055
+    Contributors: 85
+    URL: https://github.com/XcodesOrg/XcodesApp
+    Emojis: 🇺🇦 🇷🇺
+    Affiliation (DeepSeek): UKRAINE
+    Validity: FALSE
+
+[17] stalniy/casl
+    Stars: 6,578
+    Contributors: 73
+    URL: https://github.com/stalniy/casl
+    Emojis: 🇺🇦
+    Affiliation (DeepSeek): UKRAINE
+    Validity: EXPLICIT
+
+[18] chrisleekr/binance-trading-bot
+    Stars: 5,413
+    Contributors: 18
+    URL: https://github.com/chrisleekr/binance-trading-bot
+    Emojis: ❤️
+    Affiliation (DeepSeek): UKRAINE
+    Validity: EXPLICIT
+
+[19] leits/MeetingBar
+    Stars: 5,009
+    Contributors: 161
+    URL: https://github.com/leits/MeetingBar
+    Emojis: ❤️ 🇺🇦
+    Affiliation (DeepSeek): UKRAINE
+    Validity: EXPLICIT
+
+[20] terraform-aws-modules/terraform-aws-eks
+    Stars: 4,821
+    Contributors: 387
+    URL: https://github.com/terraform-aws-modules/terraform-aws-eks
+    Emojis: 🇺🇦
+    Affiliation (DeepSeek): UKRAINE
+    Validity: EXPLICIT
+
+[21] Tyrrrz/CliWrap
+    Stars: 4,772
+    Contributors: 27
+    URL: https://github.com/Tyrrrz/CliWrap
+    Emojis: 🇺🇦
+    Affiliation (DeepSeek): UKRAINE
+    Validity: EXPLICIT
+
+[22] brocoders/nestjs-boilerplate
+    Stars: 4,063
+    Contributors: 23
+    URL: https://github.com/brocoders/nestjs-boilerplate
+    Emojis: 🇺🇦
+    Affiliation (DeepSeek): UKRAINE
+    Validity: IMPLICIT
+
+[23] rubjo/victor-mono
+    Stars: 3,584
+    Contributors: 15
+    URL: https://github.com/rubjo/victor-mono
+    Emojis: ❤️
+    Affiliation (DeepSeek): UKRAINE
+    Validity: EXPLICIT
+
+[24] antonbabenko/pre-commit-terraform
+    Stars: 3,575
+    Contributors: 108
+    URL: https://github.com/antonbabenko/pre-commit-terraform
+    Emojis: 🇺🇦
+    Affiliation (DeepSeek): UKRAINE
+    Validity: EXPLICIT
+
+[25] Tyrrrz/YoutubeExplode
+    Stars: 3,407
+    Contributors: 51
+    URL: https://github.com/Tyrrrz/YoutubeExplode
+    Emojis: 🇺🇦
+    Affiliation (DeepSeek): UKRAINE
+    Validity: EXPLICIT
+
+[26] danog/MadelineProto
+    Stars: 3,251
+    Contributors: 60
+    URL: https://github.com/danog/MadelineProto
+    Emojis: 🇺🇦
+    Affiliation (DeepSeek): UKRAINE
+    Validity: EXPLICIT
+
+[27] terraform-aws-modules/terraform-aws-vpc
+    Stars: 3,168
+    Contributors: 144
+    URL: https://github.com/terraform-aws-modules/terraform-aws-vpc
+    Emojis: 🇺🇦
+    Affiliation (DeepSeek): UKRAINE
+    Validity: EXPLICIT
+
+[28] cawa-93/vite-electron-builder
+    Stars: 2,864
+    Contributors: 27
+    URL: https://github.com/cawa-93/vite-electron-builder
+    Emojis: ❤️ 🇺🇦
+    Affiliation (DeepSeek): UKRAINE
+    Validity: EXPLICIT
+
+[29] easymodo/qimgv
+    Stars: 2,808
+    Contributors: 34
+    URL: https://github.com/easymodo/qimgv
+    Emojis: 🌻
+    Affiliation (DeepSeek): UKRAINE
+    Validity: EXPLICIT
+
+[30] Tyrrrz/LightBulb
+    Stars: 2,514
+    Contributors: 11
+    URL: https://github.com/Tyrrrz/LightBulb
+    Emojis: 🇺🇦
+    Affiliation (DeepSeek): UKRAINE
+    Validity: EXPLICIT
+
+[31] google/neural-tangents
+    Stars: 2,358
+    Contributors: 30
+    URL: https://github.com/google/neural-tangents
+    Emojis: 🇺🇦
+    Affiliation (DeepSeek): UKRAINE
+    Validity: EXPLICIT
+
+[32] JKornev/hidden
+    Stars: 1,964
+    Contributors: 5
+    URL: https://github.com/JKornev/hidden
+    Emojis: 🇺🇦
+    Affiliation (DeepSeek): UKRAINE
+    Validity: EXPLICIT
+
+[33] laminas/laminas-code
+    Stars: 1,895
+    Contributors: 248
+    URL: https://github.com/laminas/laminas-code
+    Emojis: 🇺🇸 🇷🇺
+    Affiliation (DeepSeek): UKRAINE
+    Validity: EXPLICIT
+
+[34] trekhleb/machine-learning-experiments
+    Stars: 1,771
+    Contributors: 1
+    URL: https://github.com/trekhleb/machine-learning-experiments
+    Emojis: 🇺🇦
+    Affiliation (DeepSeek): UKRAINE
+    Validity: EXPLICIT
+
+[35] greyblake/nutype
+    Stars: 1,612
+    Contributors: 13
+    URL: https://github.com/greyblake/nutype
+    Emojis: 🇺🇦
+    Affiliation (DeepSeek): UKRAINE
+    Validity: IMPLICIT
+
+[36] Tyrrrz/CliFx
+    Stars: 1,576
+    Contributors: 20
+    URL: https://github.com/Tyrrrz/CliFx
+    Emojis: 🇺🇦
+    Affiliation (DeepSeek): UKRAINE
+    Validity: EXPLICIT
+
+[37] vshymanskyy/StandWithUkraine
+    Stars: 1,500
+    Contributors: 67
+    URL: https://github.com/vshymanskyy/StandWithUkraine
+    Emojis: 🇷🇺
+    Affiliation (DeepSeek): UKRAINE
+    Validity: EXPLICIT
+
+[38] scito/extract_otp_secrets
+    Stars: 1,487
+    Contributors: 15
+    URL: https://github.com/scito/extract_otp_secrets
+    Emojis: 🇺🇦
+    Affiliation (DeepSeek): UKRAINE
+    Validity: EXPLICIT
+
+[39] zutrinken/attila
+    Stars: 1,483
+    Contributors: 83
+    URL: https://github.com/zutrinken/attila
+    Emojis: 🇺🇦 🇷🇺
+    Affiliation (DeepSeek): UKRAINE
+    Validity: FALSE
+
+[40] rose-pine/rose-pine-theme
+    Stars: 1,463
+    Contributors: 14
+    URL: https://github.com/rose-pine/rose-pine-theme
+    Emojis: 💛
+    Affiliation (DeepSeek): UKRAINE
+    Validity: EXPLICIT
+
+[41] iamolegga/nestjs-pino
+    Stars: 1,426
+    Contributors: 29
+    URL: https://github.com/iamolegga/nestjs-pino
+    Emojis: 🇺🇦
+    Affiliation (DeepSeek): UKRAINE
+    Validity: EXPLICIT
+
+[42] kudrykv/latex-yearly-planner
+    Stars: 1,389
+    Contributors: 15
+    URL: https://github.com/kudrykv/latex-yearly-planner
+    Emojis: 🇺🇦
+    Affiliation (DeepSeek): UKRAINE
+    Validity: EXPLICIT
+
+[43] vladbat00/bevy_egui
+    Stars: 1,225
+    Contributors: 71
+    URL: https://github.com/vladbat00/bevy_egui
+    Emojis: 🇺🇦
+    Affiliation (DeepSeek): UKRAINE
+    Validity: EXPLICIT
+
+[44] MenosGrante/Rekado
+    Stars: 1,201
+    Contributors: 14
+    URL: https://github.com/MenosGrante/Rekado
+    Emojis: 🇺🇦
+    Affiliation (DeepSeek): UKRAINE
+    Validity: EXPLICIT
+
+[45] laminas/laminas-zendframework-bridge
+    Stars: 1,186
+    Contributors: 16
+    URL: https://github.com/laminas/laminas-zendframework-bridge
+    Emojis: 🇺🇸 🇷🇺
+    Affiliation (DeepSeek): UKRAINE
+    Validity: EXPLICIT
+
+[46] laminas/laminas-eventmanager
+    Stars: 1,013
+    Contributors: 160
+    URL: https://github.com/laminas/laminas-eventmanager
+    Emojis: 🇺🇸 🇷🇺
+    Affiliation (DeepSeek): UKRAINE
+    Validity: EXPLICIT
+
+[47] terraform-aws-modules/terraform-aws-lambda
+    Stars: 1,012
+    Contributors: 115
+    URL: https://github.com/terraform-aws-modules/terraform-aws-lambda
+    Emojis: 🇺🇦
+    Affiliation (DeepSeek): UKRAINE
+    Validity: EXPLICIT
+
+
+================================================================================
+SUMMARY BY AFFILIATION
+================================================================================
+
+BLM            :    1 repos (  0.7%) | Stars: 5,550 (avg: 5,550) | Explicit: 1 | Implicit: 0
+CLIMATE        :    2 repos (  1.4%) | Stars: 8,627 (avg: 4,314) | Explicit: 1 | Implicit: 0
+DEMOCRATS      :    2 repos (  1.4%) | Stars: 8,295 (avg: 4,148) | Explicit: 0 | Implicit: 0
+FEMINISM       :   10 repos (  6.9%) | Stars: 54,234 (avg: 5,423) | Explicit: 0 | Implicit: 0
+ISRAEL         :    1 repos (  0.7%) | Stars: 2,587 (avg: 2,587) | Explicit: 0 | Implicit: 1
+LGBTQ          :   62 repos ( 42.8%) | Stars: 271,520 (avg: 4,379) | Explicit: 4 | Implicit: 1
+PALESTINE      :   15 repos ( 10.3%) | Stars: 44,367 (avg: 2,958) | Explicit: 4 | Implicit: 2
+REPUBLICAN     :    5 repos (  3.4%) | Stars: 21,929 (avg: 4,386) | Explicit: 2 | Implicit: 0
+UKRAINE        :   47 repos ( 32.4%) | Stars: 549,499 (avg: 11,691) | Explicit: 40 | Implicit: 3
+
+================================================================================
+END OF REPORT
+================================================================================

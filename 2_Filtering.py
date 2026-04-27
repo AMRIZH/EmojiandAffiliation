@@ -5,10 +5,10 @@ from datetime import datetime
 # ============================
 # CONFIGURATION - Edit these variables
 # ============================
-INPUT_CSV = "github_readmes_100_300000.csv"  # Input CSV file to filter
-OUTPUT_CSV = "filtered_github_1000_200000.csv"  # Output CSV file (default: github_filtered_TIMESTAMP.csv)
+INPUT_CSV = "datasets/1_github_readme_100_300000_07112025.csv"  # Input CSV file to filter
 MIN_STARS = 1000  # Minimum number of stars (set to 0 for no minimum)
 MAX_STARS = 200000  # Maximum number of stars (set to None for no maximum)
+OUTPUT_CSV = f"datasets/2_filtered_github_{MIN_STARS}_{MAX_STARS}_{datetime.now().strftime('%d%m%Y')}.csv"  # Output CSV file
 MIN_CONTRIBUTORS = 0  # Minimum number of contributors (set to 0 for no minimum)
 MAX_CONTRIBUTORS = None  # Maximum number of contributors (set to None for no maximum)
 INCLUDE_FORK = False  # Set to False to exclude forked repositories (only include original repos)

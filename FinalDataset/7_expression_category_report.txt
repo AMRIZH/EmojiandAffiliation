@@ -1,0 +1,58 @@
+================================================================================
+EXPRESSION CATEGORY ANALYSIS REPORT
+================================================================================
+
+Generated: 2025-11-18 14:14:16
+Total Repositories: 59
+
+--------------------------------------------------------------------------------
+SUMMARY STATISTICS
+--------------------------------------------------------------------------------
+
+Category Usage (repositories can have multiple):
+  TEXT STATEMENT      :   39 ( 66.1%)
+  LINK SUPPORT        :   35 ( 59.3%)
+  HASHTAG SLOGAN      :   18 ( 30.5%)
+  VISUAL BADGE        :   18 ( 30.5%)
+  EMOJI ONLY          :    8 ( 13.6%)
+
+
+Affiliation Distribution:
+  UKRAINE        :   43 ( 72.9%)
+  PALESTINE      :    6 ( 10.2%)
+  LGBTQ          :    5 (  8.5%)
+  REPUBLICAN     :    2 (  3.4%)
+  BLM            :    1 (  1.7%)
+  ISRAEL         :    1 (  1.7%)
+  CLIMATE        :    1 (  1.7%)
+
+
+Validity Distribution:
+  EXPLICIT       :   52 ( 88.1%)
+  IMPLICIT       :    7 ( 11.9%)
+
+
+Repository Statistics:
+  Total Stars: 556,305
+  Average Stars: 9429
+  Median Stars: 2864
+  Min Stars: 1,012
+  Max Stars: 193,622
+
+
+Owner Type:
+  User           :   38 ( 64.4%)
+  Organization   :   21 ( 35.6%)
+
+
+Top 10 Languages:
+  JavaScript          :   10 ( 16.9%)
+  TypeScript          :    8 ( 13.6%)
+  C#                  :    7 ( 11.9%)
+  PHP                 :    5 (  8.5%)
+  Rust                :    4 (  6.8%)
+  Python              :    3 (  5.1%)
+  HCL                 :    3 (  5.1%)
+  Jupyter Notebook    :    3 (  5.1%)
+  Vue                 :    2 (  3.4%)
+  Shell               :    2 (  3.4%)

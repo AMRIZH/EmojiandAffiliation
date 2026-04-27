@@ -5,11 +5,11 @@ import os
 # ============================
 # CONFIGURATION - Edit these variables
 # ============================
-INPUT_CSV = r"datasets/affiliated_deepseek_1000_200000.csv"  # Input CSV file with affiliations
+INPUT_CSV = r"datasets/validity_checked_affiliated_deepseek_1000_200000.csv"  # Input CSV file with affiliations
 # Supported: github_affiliation_deepseek.csv, github_affiliation_openai.csv, github_affiliation_combined.csv
-OUTPUT_TXT = r"datasets/affiliated_repositories.txt"  # Output text file
-OUTPUT_MD = r"datasets/affiliated_repositories_simple.md"  # Output markdown file
-EXCLUDE_NONE = False  # Set to True to exclude repos with 'none' affiliation
+OUTPUT_TXT = r"datasets/validity_checked_affiliated_deepseek_1000_200000.txt"  # Output text file
+OUTPUT_MD = r"datasets/validity_checked_affiliated_deepseek_1000_200000.md"  # Output markdown file
+EXCLUDE_NONE = True  # Set to True to exclude repos with 'none' affiliation
 # ============================
 
 class AffiliationSamplePrinter:
@@ -96,6 +96,11 @@ class AffiliationSamplePrinter:
         df_sorted = self.df.sort_values(['affiliation', 'repo_stars'], 
                                        ascending=[True, False])
         
+        # Calculate statistics
+        total_repos = len(df_sorted)
+        explicit_count = len(df_sorted[df_sorted['validity'].str.lower() == 'explicit']) if 'validity' in df_sorted.columns else 0
+        implicit_count = len(df_sorted[df_sorted['validity'].str.lower() == 'implicit']) if 'validity' in df_sorted.columns else 0
+        
         # Open file for writing
         try:
             with open(self.output_txt, 'w', encoding='utf-8') as f:
@@ -104,7 +109,12 @@ class AffiliationSamplePrinter:
                 f.write("GITHUB REPOSITORIES WITH POLITICAL AFFILIATION\n")
                 f.write("=" * 80 + "\n")
                 f.write(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-                f.write(f"Total Repositories: {len(df_sorted):,}\n")
+                f.write(f"\n")
+                f.write(f"SUMMARY STATISTICS:\n")
+                f.write(f"  Total Repositories with Affiliation: {total_repos:,}\n")
+                f.write(f"  Explicit Affiliations: {explicit_count:,} ({explicit_count/total_repos*100:.1f}%)\n")
+                f.write(f"  Implicit Affiliations: {implicit_count:,} ({implicit_count/total_repos*100:.1f}%)\n")
+                f.write(f"  False/Other: {total_repos - explicit_count - implicit_count:,} ({(total_repos - explicit_count - implicit_count)/total_repos*100:.1f}%)\n")
                 f.write("=" * 80 + "\n\n")
                 
                 # Group by affiliation
@@ -126,7 +136,9 @@ class AffiliationSamplePrinter:
                         stars = row.get('repo_stars', 0)
                         url = row.get('repo_url', '')
                         found_emojis = row.get('found_emojis', '')
-                        contributors = row.get('contributor_count', 0)
+                        # Try both column names for contributors
+                        contributors = row.get('contributors', row.get('contributor_count', 0))
+                        validity = row.get('validity', '')
                         
                         f.write(f"[{idx}] {owner}/{name}\n")
                         f.write(f"    Stars: {stars:,}\n")
@@ -145,6 +157,10 @@ class AffiliationSamplePrinter:
                             if 'affiliation_deepseek' not in row and 'affiliation_openai' not in row:
                                 f.write(f"    Affiliation: {row['affiliation'].upper()}\n")
                         
+                        # Show validity if available
+                        if validity and pd.notna(validity):
+                            f.write(f"    Validity: {validity.upper()}\n")
+                        
                         f.write("\n")
                 
                 # Write summary
@@ -158,8 +174,13 @@ class AffiliationSamplePrinter:
                     total_stars = df_sorted[df_sorted['affiliation'] == affiliation]['repo_stars'].sum()
                     avg_stars = df_sorted[df_sorted['affiliation'] == affiliation]['repo_stars'].mean()
                     
+                    # Count validity types per affiliation
+                    aff_explicit = len(df_sorted[(df_sorted['affiliation'] == affiliation) & (df_sorted['validity'].str.lower() == 'explicit')]) if 'validity' in df_sorted.columns else 0
+                    aff_implicit = len(df_sorted[(df_sorted['affiliation'] == affiliation) & (df_sorted['validity'].str.lower() == 'implicit')]) if 'validity' in df_sorted.columns else 0
+                    
                     f.write(f"{affiliation.upper():15s}: {count:4d} repos ({percentage:5.1f}%) | "
-                           f"Total Stars: {total_stars:,} | Avg Stars: {avg_stars:,.0f}\n")
+                           f"Stars: {total_stars:,} (avg: {avg_stars:,.0f}) | "
+                           f"Explicit: {aff_explicit} | Implicit: {aff_implicit}\n")
                 
                 f.write("\n" + "=" * 80 + "\n")
                 f.write("END OF REPORT\n")
@@ -220,9 +241,16 @@ class AffiliationSamplePrinter:
                     # Section header
                     f.write(f"## {affiliation.upper()} ({len(aff_data):,} repositories)\n\n")
                     
+                    # Check if validity column exists
+                    has_validity = 'validity' in self.df.columns and self.df['validity'].notna().any()
+                    
                     # Table header
-                    f.write("| Repository | Stars | Contributors | Emojis | Affiliation |\n")
-                    f.write("|------------|-------|--------------|--------|-------------|\n")
+                    if has_validity:
+                        f.write("| Repository | Stars | Contributors | Emojis | Affiliation | Validity |\n")
+                        f.write("|------------|-------|--------------|--------|-------------|----------|\n")
+                    else:
+                        f.write("| Repository | Stars | Contributors | Emojis | Affiliation |\n")
+                        f.write("|------------|-------|--------------|--------|-------------|\n")
                     
                     # Write each repo as table row
                     for _, row in aff_data.iterrows():
@@ -231,7 +259,9 @@ class AffiliationSamplePrinter:
                         stars = row.get('repo_stars', 0)
                         url = row.get('repo_url', '')
                         found_emojis = row.get('found_emojis', '')
-                        contributors = row.get('contributor_count', 0)
+                        # Try both column names for contributors
+                        contributors = row.get('contributors', row.get('contributor_count', 0))
+                        validity = row.get('validity', '')
                         
                         # Build affiliation string showing all available columns
                         aff_parts = []
@@ -244,9 +274,13 @@ class AffiliationSamplePrinter:
                         
                         affiliation_str = " / ".join(aff_parts) if aff_parts else "NONE"
                         emoji_str = found_emojis if found_emojis else "-"
+                        validity_str = validity.upper() if validity and pd.notna(validity) else "-"
                         
                         # Format as markdown table row
-                        f.write(f"| [{owner}/{name}]({url}) | {stars:,} | {contributors:,} | {emoji_str} | {affiliation_str} |\n")
+                        if has_validity:
+                            f.write(f"| [{owner}/{name}]({url}) | {stars:,} | {contributors:,} | {emoji_str} | {affiliation_str} | {validity_str} |\n")
+                        else:
+                            f.write(f"| [{owner}/{name}]({url}) | {stars:,} | {contributors:,} | {emoji_str} | {affiliation_str} |\n")
                     
                     f.write("\n")
                 
