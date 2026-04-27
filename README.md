@@ -663,6 +663,129 @@ New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name
 - 🔍 Measure activism correlation with repository metrics
 - 📊 Track temporal trends of political engagement in tech
 
+---
+
+## 📋 Research Paper Appendix
+
+This section supplements the paper *"On the Usage of Emojis to Signal Activism in GitHub Repositories"* with the full lexicon, classifier configuration, annotated examples, and inter-rater agreement details.
+
+### A. Activism Emoji Lexicon (40 emoji, 9 categories)
+
+The lexicon was compiled from prior work on activism symbols and a manual review of high-frequency activist markers in social-movement reporting. It is non-exhaustive. Signals expressed without any of these emoji, such as color-only Pride representations, custom badges, or purely textual manifestos, fall outside the sample.
+
+| Category | Emoji | Description |
+|---|---|---|
+| **Ukraine** | 🇺🇦 💛 💙 🌻 | Ukraine flag, yellow heart, blue heart, sunflower |
+| **Palestine** | 🇵🇸 🍉 ❤️ 💚 🖤 | Palestine flag, watermelon, red/green/black hearts |
+| **Israel** | 🇮🇱 ✡️ 🎗️ 💙 🤍 | Israel flag, Star of David, reminder ribbon, blue/white hearts |
+| **Black Lives Matter** | ✊ ✊🏻 ✊🏼 ✊🏽 ✊🏾 ✊🏿 🤎 🖤 | Raised fist (default + skin tones), brown/black hearts |
+| **Climate** | ♻️ 🌱 🌍 🌎 🌏 🔥 | Recycle, seedling, three globe variants, fire |
+| **Feminism** | ♀️ 🚺 💔 😔 🍚 🐰 | Female sign, women's room, broken heart, pensive face, rice, rabbit |
+| **LGBTQ+** | 🌈 🏳️‍🌈 🏳️‍⚧️ | Rainbow, rainbow flag, transgender flag |
+| **Democrat** | 🇺🇸 🗳️ 🦅 | US flag, ballot box, eagle |
+| **Republican** | 🐘 | Elephant |
+
+**Cross-category emoji.** Some emoji span more than one category (for example, the blue heart appears under both Israel and Ukraine). The Stage-1 classifier uses surrounding README text to disambiguate.
+
+**Known gaps.** Color-combination Pride signals, region-specific solidarity markers, and custom GitHub badges are not covered and contribute to false-negative risk.
+
+---
+
+### B. Stage-1 Classifier (DeepSeek)
+
+| Setting | Value |
+|---|---|
+| Model | `deepseek-chat` (DeepSeek-V3.2) |
+| Temperature | `0.0` |
+| `max_tokens` | `10` |
+| README cap | 3,000 characters |
+| Output schema | One lowercase label from the 9 categories, or `none` |
+
+An earlier pilot used OpenAI `gpt-4.1-nano`; the results reported in the paper use only DeepSeek.
+
+#### B.1 System prompt (verbatim)
+
+```
+You are an expert classifier for GitHub README files.
+
+Decide whether the README expresses support for an activism cause.
+The cause must be one of these nine categories:
+
+  ukraine, palestine, israel, blm, climate,
+  feminism, lgbtq, democrat, republican
+
+If the README expresses clear support for one of these causes (via
+text statements, donation links, banners, slogans, or activism
+emoji used in context), return the matching lowercase category
+label. If the README contains the emoji only as decoration, as part
+of internationalization, as a food reference, or in any other
+context unrelated to the activism cause, return `none`.
+
+Output rules:
+- Return EXACTLY ONE lowercase label.
+- The only valid outputs are:
+    ukraine | palestine | israel | blm | climate |
+    feminism | lgbtq | democrat | republican | none
+- No explanation, no punctuation, no extra whitespace.
+```
+
+#### B.2 User-message template (verbatim)
+
+```
+Repository: {owner}/{name}
+Found emoji: {comma_separated_emoji}
+README (first 3000 chars):
+{readme_truncated}
+
+Label:
+```
+
+#### B.3 Notes on prompt engineering
+
+- Tuned toward **high recall** so Stage-2 manual validation removes decorative cases the LLM keeps.
+- No explanations requested. Chain-of-thought increased token cost without improving precision and would inflate `max_tokens` beyond 10.
+- Iterated until the model emitted only valid labels on a 50-README pilot (zero formatting violations).
+
+---
+
+### C. Annotated Examples (one per validity category)
+
+Each example is paraphrased to remove identifying details while preserving the pattern that drove the human annotator's decision.
+
+#### C.1 Explicit affiliation
+
+> *Algorithm-tutorial repository, Ukraine*
+>
+> The README opens with a top-of-page banner: **"🇺🇦 We stand with Ukraine. Russia invaded Ukraine on February 24, 2022."** Immediately under the banner, a verified donation link points to a registered humanitarian organization.
+
+**Explicit because:** Unambiguous textual statement of support at the top of the README, with a verified donation link.
+
+#### C.2 Implicit affiliation
+
+> *Self-hosted web application, Palestine*
+>
+> The repository description reads: **"A self-hosted dashboard 🍉 🇵🇸"**. No explicit "Free Palestine" statement, no donation link, no further textual reference. The only signal is the watermelon emoji (a known Palestinian solidarity symbol) and the Palestinian flag in the description.
+
+**Implicit because:** Activism signaled through emoji pairing in a high-visibility location without supporting text.
+
+#### C.3 False positive
+
+> *UI component library, generic decoration*
+>
+> The README uses 🌈 as a decorative section divider between feature blocks ("🌈 Components", "🌈 Hooks", "🌈 Examples"), interleaved with ✨ 🎉 ⚡. No Pride statement, no LGBTQ+ reference, no advocacy link.
+
+**False positive because:** Activism-coded emoji in a clearly decorative role with no surrounding context that would justify reading it as a Pride signal.
+
+---
+
+### D. Inter-rater Agreement Worksheet
+
+The full 145-row dual-annotation worksheet — repo owner/name, found emoji, deepseek_label, README excerpt, human-annotator label (rater 1), LLM-judge label (rater 2) — is in `FinalDataset/kappa_annotation_template.csv`. The kappa-computation script is `FinalDataset/compute_kappa.py`.
+
+Reported agreement: **Cohen's κ = 0.65** (observed agreement 81.4%; Landis–Koch "substantial").
+
+---
+
 ## 🤝 Contributing
 
 This is an active research project. **Contributions welcome!**
