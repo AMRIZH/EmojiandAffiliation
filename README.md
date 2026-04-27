@@ -322,7 +322,7 @@ MAX_RETRIES = 3                   # Retry on failure
 ```python
 # In ReadmeScrapper_Batch.py
 
-MIN_STARS = 500               # Lower = more repos (denser)
+MIN_STARS = 1000               # Lower = more repos (denser)
 MAX_STARS = 200000            # Upper bound (adjust if needed)
 NUMBER_OF_TOKENS = 20         # Total tokens in .env
 MAX_WORKERS = 12              # Scraping parallelism
